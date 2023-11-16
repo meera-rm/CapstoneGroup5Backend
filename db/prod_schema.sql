@@ -75,13 +75,51 @@ CREATE TABLE comments(
 
 
 DROP TABLE IF EXISTS users; 
-
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE users(
-    users_id SERIAL PRIMARY KEY,
-    users_name TEXT NOT NULL,
-    -- not sure if we will need the field below
-    users_role TEXT NOT NULL,
+    -- user_id uuid DEFAULT uuid_generate_v4 (),
+    user_id SERIAL PRIMARY KEY,
+    user_name TEXT NOT NULL,
+    user_role TEXT NOT NULL,
     user_avatar TEXT,
-    users_email TEXT NOT NULL,
-    user_password TEXT NOT NULL
+    user_email TEXT NOT NULL,
+    user_password TEXT NOT NULL,
+    -- PRIMARY KEY (user_id)
+);
+
+DROP TABLE IF EXISTS subscriptions;
+CREATE TABLE subscriptions (
+    subscription_id SERIAL PRIMARY KEY, 
+    subscribed_on timestamp DEFAULT CURRENT_TIMESTAMP,
+    is_subscribed BOOLEAN DEFAULT FALSE,
+    is_verified BOOLEAN DEFAULT FALSE,
+    fullName TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE
+);
+
+DROP TABLE IF EXISTS  personal_dictionary;
+CREATE TABLE personal_dictionary (
+    dictionary_id SERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    word TEXT NOT NULL,
+    grade TEXT NOT NULL,
+    partsofSpeech TEXT NOT NULL,
+    definitions TEXT NOT NULL,
+    example TEXT NOT NULL,
+    synonyms TEXT NOT NULL,
+    antonyms TEXT NOT NULL,
+    users_id INTEGER REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE 
+    CASCADE
+);
+
+DROP TABLE IF EXISTS notes;
+CREATE TABLE notes (
+    note_id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    note_title TEXT NOT NULL,
+    textnotes TEXT NOT NULL,
+    users_id INT REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE 
+    CASCADE
 );

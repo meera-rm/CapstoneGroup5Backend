@@ -12,7 +12,7 @@ const {
   oneTeacher,
   deleteTeacher,
   createTeacher,
-  upDateTeacher,
+  updateTeacher,
 } = require('../queries/teachers.js');
 
 // get all teachers

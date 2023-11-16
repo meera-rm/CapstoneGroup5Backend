@@ -80,22 +80,44 @@ CREATE TABLE comments(
 DROP TABLE IF EXISTS users; 
 
 CREATE TABLE users(
-    users_id SERIAL PRIMARY KEY,
-    users_name TEXT NOT NULL,
-    -- not sure if we will need the field below
-    users_role TEXT NOT NULL,
-    users_avatar TEXT,
-    users_email TEXT NOT NULL,
+    user_id SERIAL PRIMARY KEY,
+    user_name TEXT NOT NULL UNIQUE,
+    user_role TEXT NOT NULL,
+    user_avatar TEXT NOT NULL,
+    user_email TEXT NOT NULL UNIQUE,
     user_password TEXT NOT NULL
 );
 
 
+DROP TABLE IF EXISTS  email_subscriptions;
+CREATE TABLE email_subscriptions (
+    id SERIAL PRIMARY KEY, 
+    firstname text,
+    email text NOT NULL UNIQUE
+);
 
 
+DROP TABLE IF EXISTS firebase ;
 CREATE TABLE firebase(
     firebase_id SERIAL PRIMARY KEY,
     firebase_email TEXT NOT NULL,
     id INT REFERENCES users(users_id)
 
 )
+
+DROP TABLE IF EXISTS  personal_dictionary;
+CREATE TABLE personal_dictionary (
+    dictionary_id SERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    word TEXT NOT NULL,
+    grade TEXT NOT NULL,
+    partsofSpeech TEXT NOT NULL,
+    definitions TEXT NOT NULL,
+    example TEXT ,
+    synonyms TEXT [],
+    antonyms TEXT [],
+    users_id INTEGER REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE 
+    CASCADE
+);
 

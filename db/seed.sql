@@ -34,14 +34,27 @@ INSERT INTO comments(teacher_comments,logs_id,teachers_id)VALUES
 ('How does the character feel?',3,2);
 
 
-INSERT INTO users(users_name,users_role,users_email,user_password) VALUES
-('Admin', 'admin', 'admin@scholarsheep.org', 'Sheeper'),
-('Thomas Edward','parent', 'thomas@gmail.com', 'celia08'),
-('Christine Duncan', 'parent', 'christine@msn.com','jade14'),
-('Norma Lioudis', 'parent', 'norma@a0l.com', 'barry10'),
-('Ms.Fundy', 'teacher', 'msfundy@gmail.com', 'fundyedu'),
-('Ms.Perez', 'teacher', 'msperez@gmail.com', 'perezedu'),
-('Mr.Edmundson', 'teacher', 'mredmundson@gmail.com', 'edmundsonedu'),
-('Ms.Blackmond', 'teacher', 'msblackmond@gmail.com', 'blackmondedu');
+INSERT INTO users(user_name,user_role,user_avatar,user_email,user_password) VALUES
+
+('Thomas Edward','parent', 'https://api.dicebear.com/5.x/personas/svg?seed=Leo','thomas@gmail.com', 'celia08'),
+('Christine Duncan', 'parent','https://api.dicebear.com/5.x/personas/svg?seed=Loki', 'christine@msn.com','jade14'),
+('Norma Lioudis', 'parent', 'https://api.dicebear.com/5.x/personas/svg?seed=Lucky','norma@a0l.com', 'barry10'),
+('Ms.Fundy', 'teacher','https://api.dicebear.com/5.x/personas/svg?seed=Zoey', 'msfundy@gmail.com', 'fundyedu'),
+('Ms.Perez', 'teacher','https://api.dicebear.com/5.x/personas/svg?seed=Aneka', 'msperez@gmail.com', 'perezedu'),
+('Mr.Edmundson', 'teacher', 'https://api.dicebear.com/5.x/personas/svg?seed=Jasper','mredmundson@gmail.com', 'edmundsonedu'),
+('Ms.Blackmond', 'teacher','https://api.dicebear.com/5.x/personas/svg?seed=Sophie', 'msblackmond@gmail.com', 'blackmondedu');
 
 
+INSERT INTO email_subscriptions (firstname, email) VALUES
+    ('Thomas', 'thomas@gmail.com'),
+    ('Christine', 'christine@msn.com'),
+    ('Norma', 'norma@a0l.com');
+
+
+
+--     ('Christine Duncan', 'parent','https://api.dicebear.com/5.x/personas/svg?seed=Loki', 'christine@msn.com','jade14'),
+-- ('Norma Lioudis', 'parent', 'https://api.dicebear.com/5.x/personas/svg?seed=Lucky','norma@a0l.com', 'barry10'),
+-- ('Ms.Fundy', 'teacher','https://api.dicebear.com/5.x/personas/svg?seed=Zoey', 'msfundy@gmail.com', 'fundyedu'),
+-- ('Ms.Perez', 'teacher','https://api.dicebear.com/5.x/personas/svg?seed=Aneka', 'msperez@gmail.com', 'perezedu'),
+-- ('Mr.Edmundson', 'teacher', 'https://api.dicebear.com/5.x/personas/svg?seed=Jasper','mredmundson@gmail.com', 'edmundsonedu'),
+-- ('Ms.Blackmond', 'teacher','https://api.dicebear.com/5.x/personas/svg?seed=Sophie', 'msblackmond@gmail.com', 'blackmondedu');
