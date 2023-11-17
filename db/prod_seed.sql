@@ -51,9 +51,9 @@ INSERT INTO subscriptions (fullName, email) VALUES
 
 INSERT INTO personal_dictionary (word, grade, partsofSpeech, definitions,
     example,synonyms,antonyms,users_id) VALUES
-    ('perfect', '1','noun','the achievement of finishing a stage or task with no mistakes.','Practice makes perfect.',ARRAY['mature','bisexual','hermaphroditic','accurate','flawless','expert','proficient','faultless','infallible'],ARRAY['imperfect','flawed','fallible','faultful','faulty'],1),
-    ('challenge','K','noun','A confrontation; a dare.','We challenged the boys next door to a game of football',ARRAY['becall','call out'],ARRAY[]::TEXT[],2),
-    ('rude', '1','adjective','Bad-mannered.','Karen broke up with Fred because he was often rude to her.',ARRAY['ill-mannered','uncouth','adult','blue','primitive'],ARRAY[]::TEXT[],1);
+    ('perfect', '1','noun',ARRAY['the achievement of finishing a stage or task with no mistakes.'],ARRAY['Practice makes perfect.'],ARRAY['mature','bisexual','hermaphroditic','accurate','flawless','expert','proficient','faultless','infallible'],ARRAY['imperfect','flawed','fallible','faultful','faulty'],3),
+    ('challenge','K','noun',ARRAY['A confrontation; a dare.'],ARRAY['We challenged the boys next door to a game of football'],ARRAY['becall','call out'],ARRAY[]::TEXT[],1),
+    ('rude', '1','adjective',ARRAY['Bad-mannered.'],ARRAY['Karen broke up with Fred because he was often rude to her.'],ARRAY['ill-mannered','uncouth','adult','blue','primitive'],ARRAY[]::TEXT[],2);
 
 
 

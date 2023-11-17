@@ -102,14 +102,14 @@ CREATE TABLE personal_dictionary (
     dictionary_id SERIAL PRIMARY KEY,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    word TEXT NOT NULL,
+    word TEXT NOT NULL UNIQUE,
     grade TEXT NOT NULL,
     partsofSpeech TEXT NOT NULL,
-    definitions TEXT NOT NULL,
-    example TEXT NOT NULL,
-    synonyms TEXT NOT NULL,
-    antonyms TEXT NOT NULL,
-    users_id INTEGER REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE 
+    definitions TEXT [],
+    example TEXT  [],
+    synonyms TEXT [],
+    antonyms TEXT [],
+    users_id INT REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE 
     CASCADE
 );
 

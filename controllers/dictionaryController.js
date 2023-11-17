@@ -11,14 +11,15 @@ const {
   allWords,
   deleteWord,
   createWord,
+  checkWord,
   updateWord,
-  getAWord
+  getAWord,
 } = require('../queries/dictionary.js');
 
 // get all words
 words.get('/', async (req, res) => {
   const getAllWords = await allWords();
-  console.log(getAllWords)
+  console.log(getAllWords);
   if (getAllWords) {
     res.status(200).json({
       success: true,
@@ -36,22 +37,18 @@ words.get('/:word', async (req, res) => {
 
   try {
     const singleWord = await getAWord(word);
-   
-     res.status(200).json({ success: true, payload: singleWord });
-    
+
+    res.status(200).json({ success: true, payload: singleWord });
   } catch (error) {
     console.error('Error:', error.message);
     console.error('Error:', error.response);
     res.status(500).json({ message: error.message, code: error.code });
-    
   }
 });
 
-
-
 // creating a word (new)
 // words.post('/', async (req, res) => {
-//   console.log(req.body);
+//   console.log('req',req.body);
 
 //   const newWord = req.body;
 
@@ -65,32 +62,30 @@ words.get('/:word', async (req, res) => {
 //     }
 
 //     const addWord = await createWord(newWord);
-//     console.log(addWord);
+    
 //     res.status(200).json({
 //       success: true,
-//       payload: addWord[0],
+//       payload: addWord,
 //     });
 //   } catch (error) {
 //     res.status(404).json({ success: false, message: 'word cannot be added' });
 //   }
 // });
 
-// creating a word 
-words.post('/addWordIfNotExists', async (req, res) => {
- 
-  const {checkIfWordExists} = req.body
-  console.log(checkIfWordExists)
-   try {
+// creating a word
+words.post('/addWord', async (req, res) => {
+  const  wordDetails  = req.body;
+ console.log('wordDetails', wordDetails)
+  try {
+    // if (!checkWord.synonyms) {
+    //   checkWord.synonyms = [];
+    // }
 
-    if (!checkIfWordExists.synonyms) {
-      checkIfWordExists.synonyms = [];
-    }
+    // if (!checkWord.antonyms) {
+    //   checkWord.antonyms = [];
+    // }
+    const existsOrAddWord = await checkWord(wordDetails);
 
-    if (!checkIfWordExists.antonyms) {
-      checkIfWordExists.antonyms = [];
-    }
-    const existsOrAddWord = await checkWord(checkIfWordExists);
-   
     res.status(200).json({
       success: true,
       payload: existsOrAddWord,
@@ -98,9 +93,7 @@ words.post('/addWordIfNotExists', async (req, res) => {
   } catch (error) {
     res.status(404).json({ success: false, message: 'word cannot be added' });
   }
-
-})
-
+});
 
 words.put('/:dictionaryId', async (req, res) => {
   const { dictionaryId } = req.params;

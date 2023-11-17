@@ -41,43 +41,44 @@ const deleteWord = async (dicitonaryId) => {
 
 // creating new word
 
-const createWord = async (wordDict) => {
-  let {
-    word,
-    grade,
-    partsofSpeech,
-    definitions,
-    example,
-    synonyms,
-    antonyms,
-    users_id,
-  } = wordDict;
+// const createWord = async (wordDict) => {
+//   let {
+//     word,
+//     grade,
+//     partsofSpeech,
+//     definitions,
+//     example,
+//     synonyms,
+//     antonyms,
+//     users_id,
+//   } = wordDict;
 
-  try {
-    const newWord = await db.one(
-      'INSERT INTO personal_dictionary(word, grade,partsofSpeech,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 ) RETURNING *',
-      [
-        word,
-        grade,
-        partsofSpeech,
-        definitions,
-        example,
-        synonyms || [],
-        antonyms || [],
-        users_id,
-      ]
-    );
+//   try {
+//     const newWord = await db.one(
+//       'INSERT INTO personal_dictionary(word, grade,partsofSpeech,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 ) RETURNING *',
+//       [
+//         word,
+//         grade,
+//         partsofSpeech,
+//         definitions,
+//         example,
+//         synonyms,
+//         antonyms,
+//         users_id,
+//       ]
+//     );
+    
+//     return newWord;
+//   } catch (error) {
+//     console.log(error.message || error);
+//     return error;
+//   }
+// };
 
-    return newWord;
-  } catch (error) {
-    console.log(error.message || error);
-    return error;
-  }
-};
 
 //check if word exists in the dictionary
-const checkWord = async (wordDict) => {
-
+const checkWord = async (words) => {
+  console.log('worddict', words);
   let {
     word,
     grade,
@@ -87,44 +88,38 @@ const checkWord = async (wordDict) => {
     synonyms,
     antonyms,
     users_id,
-  } = wordDict;
+  } = words;
 
   try {
-    // const wordExists = await db.oneOrNone(
-    //   `SELECT * FROM personal_dictionary
-    //    WHERE word = $1  AND users_id = $2`,
-    
-    //   [word,users_id]
-    // );
-    //  console.log(`wordExists: ${wordExists}`);
-
-    // if (!wordExists) {
       const insertWord = await db.one(
-        
         `INSERT INTO personal_dictionary
          (word, grade, partsofSpeech, definitions, example, synonyms, antonyms, users_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         SELECT $1, $2, $3, $4, $5, $6, $7, $8
+         WHERE NOT EXISTS (
+           SELECT dictionary_id FROM personal_dictionary
+           WHERE word = $1 AND users_id = $8
+         )
          RETURNING *`,
+        // 'INSERT INTO personal_dictionary(word, grade,partsofSpeech,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 ) RETURNING *',
         [
           word,
           grade,
           partsofSpeech,
           definitions,
           example,
-          synonyms || [],
-          antonyms || [],
+          synonyms ,
+          antonyms ,
           users_id,
         ]
       );
       return insertWord;
-    // } else {
-    //   return 'Word already exists in the database for this user.';
-    // }
+
   } catch (error) {
     console.error('Error:', error.message);
     throw error;
   }
 };
+
 
 
 // update/edit teacher acct
@@ -165,7 +160,8 @@ module.exports = {
   allWords,
   getAWord,
   deleteWord,
-  createWord,
+  // createWord,
   checkWord,
   updateWord,
+  
 };
