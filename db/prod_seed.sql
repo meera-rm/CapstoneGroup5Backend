@@ -49,11 +49,10 @@ INSERT INTO subscriptions (fullName, email) VALUES
     ('Sam','sam@hotmail.com');
     
 
-INSERT INTO personal_dictionary (word, grade, partsofSpeech, definitions,
-    example,synonyms,antonyms,users_id) VALUES
-    ('perfect', '1','noun',ARRAY['the achievement of finishing a stage or task with no mistakes.'],ARRAY['Practice makes perfect.'],ARRAY['mature','bisexual','hermaphroditic','accurate','flawless','expert','proficient','faultless','infallible'],ARRAY['imperfect','flawed','fallible','faultful','faulty'],3),
-    ('challenge','K','noun',ARRAY['A confrontation; a dare.'],ARRAY['We challenged the boys next door to a game of football'],ARRAY['becall','call out'],ARRAY[]::TEXT[],1),
-    ('rude', '1','adjective',ARRAY['Bad-mannered.'],ARRAY['Karen broke up with Fred because he was often rude to her.'],ARRAY['ill-mannered','uncouth','adult','blue','primitive'],ARRAY[]::TEXT[],2);
+INSERT INTO personal_dictionary (word, grade, partsofSpeech, phonetic,   definitions, example,synonyms,antonyms,users_id) VALUES
+    ('perfect', '1','noun','/ˈpɜː.fɛkt/',ARRAY['the achievement of finishing a stage or task with no mistakes.'],ARRAY['Practice makes perfect.'],ARRAY['mature','bisexual','hermaphroditic','accurate','flawless','expert','proficient','faultless','infallible'],ARRAY['imperfect','flawed','fallible','faultful','faulty'],3),
+    ('challenge','K','noun','/ˈtʃæl.əndʒ/',ARRAY['A confrontation; a dare.'],ARRAY['We challenged the boys next door to a game of football'],ARRAY['becall','call out'],ARRAY[]::TEXT[],1),
+    ('rude', '1','adjective','/ɹʉːd/',ARRAY['Bad-mannered.'],ARRAY['Karen broke up with Fred because he was often rude to her.'],ARRAY['ill-mannered','uncouth','adult','blue','primitive'],ARRAY[]::TEXT[],2);
 
 
 
