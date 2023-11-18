@@ -46,6 +46,7 @@ const deleteWord = async (dicitonaryId) => {
 //     word,
 //     grade,
 //     partsofSpeech,
+//     phonetic,
 //     definitions,
 //     example,
 //     synonyms,
@@ -55,11 +56,12 @@ const deleteWord = async (dicitonaryId) => {
 
 //   try {
 //     const newWord = await db.one(
-//       'INSERT INTO personal_dictionary(word, grade,partsofSpeech,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 ) RETURNING *',
+//       'INSERT INTO personal_dictionary(word, grade,partsofSpeech, phonetic,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 , $9) RETURNING *',
 //       [
 //         word,
 //         grade,
 //         partsofSpeech,
+//         phonetic,
 //         definitions,
 //         example,
 //         synonyms,
@@ -67,14 +69,13 @@ const deleteWord = async (dicitonaryId) => {
 //         users_id,
 //       ]
 //     );
-    
+
 //     return newWord;
 //   } catch (error) {
 //     console.log(error.message || error);
 //     return error;
 //   }
 // };
-
 
 //check if word exists in the dictionary
 const checkWord = async (words) => {
@@ -83,6 +84,7 @@ const checkWord = async (words) => {
     word,
     grade,
     partsofSpeech,
+    phonetic,
     definitions,
     example,
     synonyms,
@@ -91,36 +93,34 @@ const checkWord = async (words) => {
   } = words;
 
   try {
-      const insertWord = await db.one(
-        `INSERT INTO personal_dictionary
-         (word, grade, partsofSpeech, definitions, example, synonyms, antonyms, users_id)
-         SELECT $1, $2, $3, $4, $5, $6, $7, $8
+    const insertWord = await db.one(
+      `INSERT INTO personal_dictionary
+         (word, grade, partsofSpeech,phonetic, definitions, example, synonyms, antonyms, users_id)
+         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
          WHERE NOT EXISTS (
            SELECT dictionary_id FROM personal_dictionary
            WHERE word = $1 AND users_id = $8
          )
          RETURNING *`,
-        // 'INSERT INTO personal_dictionary(word, grade,partsofSpeech,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 ) RETURNING *',
-        [
-          word,
-          grade,
-          partsofSpeech,
-          definitions,
-          example,
-          synonyms ,
-          antonyms ,
-          users_id,
-        ]
-      );
-      return insertWord;
-
+      // 'INSERT INTO personal_dictionary(word, grade,partsofSpeech,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 ) RETURNING *',
+      [
+        word,
+        grade,
+        partsofSpeech,
+        phonetic,
+        definitions,
+        example,
+        synonyms,
+        antonyms,
+        users_id,
+      ]
+    );
+    return insertWord;
   } catch (error) {
     console.error('Error:', error.message);
     throw error;
   }
 };
-
-
 
 // update/edit teacher acct
 const updateWord = async (dictionary, dicitonaryId) => {
@@ -128,6 +128,7 @@ const updateWord = async (dictionary, dicitonaryId) => {
     word,
     grade,
     partsofSpeech,
+    phonetic,
     definitions,
     example,
     synonyms,
@@ -137,11 +138,12 @@ const updateWord = async (dictionary, dicitonaryId) => {
 
   try {
     return await db.one(
-      'UPDATE personal_dictionary SET word = $1, grade=$2, partsofSpeech = $3, definitions = $4, example = $5, synonyms = $6,antonyms = $7, users_id = $8 where dictionary_id = $9 RETURNING *',
+      'UPDATE personal_dictionary SET word = $1, grade=$2, partsofSpeech = $3, phonetic = $4 , definitions = $5, example = $6, synonyms = $7,antonyms = $8, users_id = $9 where dictionary_id = $10 RETURNING *',
       [
         word,
         grade,
         partsofSpeech,
+        phonetic,
         definitions,
         example,
         synonyms,
@@ -163,5 +165,4 @@ module.exports = {
   // createWord,
   checkWord,
   updateWord,
-  
 };
