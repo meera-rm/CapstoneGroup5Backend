@@ -50,9 +50,9 @@ INSERT INTO subscriptions (fullName, email) VALUES
     
 
 INSERT INTO personal_dictionary (word, grade, partsofSpeech, phonetic,   definitions, example,synonyms,antonyms,users_id) VALUES
-    ('perfect', '1','noun','/ˈpɜː.fɛkt/',ARRAY['the achievement of finishing a stage or task with no mistakes.'],ARRAY['Practice makes perfect.'],ARRAY['mature','bisexual','hermaphroditic','accurate','flawless','expert','proficient','faultless','infallible'],ARRAY['imperfect','flawed','fallible','faultful','faulty'],3),
-    ('challenge','K','noun','/ˈtʃæl.əndʒ/',ARRAY['A confrontation; a dare.'],ARRAY['We challenged the boys next door to a game of football'],ARRAY['becall','call out'],ARRAY[]::TEXT[],1),
-    ('rude', '1','adjective','/ɹʉːd/',ARRAY['Bad-mannered.'],ARRAY['Karen broke up with Fred because he was often rude to her.'],ARRAY['ill-mannered','uncouth','adult','blue','primitive'],ARRAY[]::TEXT[],2);
+    ('perfect', '1','noun','https://api.dictionaryapi.dev/media/pronunciations/en/perfect-1-us.mp3',ARRAY['the achievement of finishing a stage or task with no mistakes.'],ARRAY['Practice makes perfect.'],ARRAY['mature','bisexual','hermaphroditic','accurate','flawless','expert','proficient','faultless','infallible'],ARRAY['imperfect','flawed','fallible','faultful','faulty'],3),
+    ('challenge','K','noun','https://api.dictionaryapi.dev/media/pronunciations/en/challenge-us.mp3"',ARRAY['A confrontation; a dare.'],ARRAY['We challenged the boys next door to a game of football'],ARRAY['becall','call out'],ARRAY[]::TEXT[],1),
+    ('rude', '1','adjective','https://api.dictionaryapi.dev/media/pronunciations/en/rude-us.mp3',ARRAY['Bad-mannered.'],ARRAY['Karen broke up with Fred because he was often rude to her.'],ARRAY['ill-mannered','uncouth','adult','blue','primitive'],ARRAY[]::TEXT[],2);
 
 
 

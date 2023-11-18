@@ -105,7 +105,7 @@ CREATE TABLE personal_dictionary (
     word TEXT NOT NULL UNIQUE,
     grade TEXT NOT NULL,
     partsofSpeech TEXT NOT NULL,
-    phonetic TEXT ,
+    phonetic TEXT NOT NULL,
     definitions TEXT [],
     example TEXT  [],
     synonyms TEXT [],
