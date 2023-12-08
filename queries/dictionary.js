@@ -41,41 +41,42 @@ const deleteWord = async (dicitonaryId) => {
 
 // creating new word
 
-// const createWord = async (wordDict) => {
-//   let {
-//     word,
-//     grade,
-//     partsofSpeech,
-//     phonetic,
-//     definitions,
-//     example,
-//     synonyms,
-//     antonyms,
-//     users_id,
-//   } = wordDict;
+const createWord = async (wordDict) => {
+  console.log('wordDict',wordDict);
+  let {
+    word,
+    grade,
+    partsofSpeech,
+    phonetic,
+    definitions,
+    example,
+    synonyms,
+    antonyms,
+    users_id,
+  } = wordDict;
 
-//   try {
-//     const newWord = await db.one(
-//       'INSERT INTO personal_dictionary(word, grade,partsofSpeech, phonetic,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 , $9) RETURNING *',
-//       [
-//         word,
-//         grade,
-//         partsofSpeech,
-//         phonetic,
-//         definitions,
-//         example,
-//         synonyms,
-//         antonyms,
-//         users_id,
-//       ]
-//     );
-
-//     return newWord;
-//   } catch (error) {
-//     console.log(error.message || error);
-//     return error;
-//   }
-// };
+  try {
+    const newWord = await db.one(
+      'INSERT INTO personal_dictionary(word, grade,partsofSpeech, phonetic,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 , $9) RETURNING *',
+      [
+        word,
+        grade,
+        partsofSpeech,
+        phonetic,
+        definitions,
+        example,
+        synonyms,
+        antonyms,
+        users_id,
+      ]
+    );
+   console.log(newWord)
+    return newWord;
+  } catch (error) {
+    console.log(error.message || error);
+    return error;
+  }
+};
 
 //check if word exists in the dictionary
 const checkWord = async (words) => {
@@ -99,7 +100,7 @@ const checkWord = async (words) => {
          SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
          WHERE NOT EXISTS (
            SELECT dictionary_id FROM personal_dictionary
-           WHERE word = $1 AND users_id = $8
+           WHERE word = $1 AND users_id = $2
          )
          RETURNING *`,
       // 'INSERT INTO personal_dictionary(word, grade,partsofSpeech,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 ) RETURNING *',
@@ -162,7 +163,7 @@ module.exports = {
   allWords,
   getAWord,
   deleteWord,
-  // createWord,
+  createWord,
   checkWord,
   updateWord,
 };

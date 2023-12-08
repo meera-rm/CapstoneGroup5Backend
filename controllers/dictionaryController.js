@@ -47,53 +47,53 @@ words.get('/:word', async (req, res) => {
 });
 
 // creating a word (new)
-// words.post('/', async (req, res) => {
-//   console.log('req',req.body);
+words.post('/', async (req, res) => {
+  console.log('req', req.body);
 
-//   const newWord = req.body;
+  const newWord = req.body;
 
-//   try {
-//     if (!newWord.synonyms) {
-//       newWord.synonyms = [];
-//     }
-
-//     if (!newWord.antonyms) {
-//       newWord.antonyms = [];
-//     }
-
-//     const addWord = await createWord(newWord);
-    
-//     res.status(200).json({
-//       success: true,
-//       payload: addWord,
-//     });
-//   } catch (error) {
-//     res.status(404).json({ success: false, message: 'word cannot be added' });
-//   }
-// });
-
-// creating a word
-words.post('/addWord', async (req, res) => {
-  const  wordDetails  = req.body;
- console.log('wordDetails', wordDetails)
   try {
-    // if (!checkWord.synonyms) {
-    //   checkWord.synonyms = [];
+    // if (!newWord.synonyms) {
+    //   newWord.synonyms = [];
     // }
 
-    // if (!checkWord.antonyms) {
-    //   checkWord.antonyms = [];
+    // if (!newWord.antonyms) {
+    //   newWord.antonyms = [];
     // }
-    const existsOrAddWord = await checkWord(wordDetails);
+
+    const addWord = await createWord(req.body);
 
     res.status(200).json({
       success: true,
-      payload: existsOrAddWord,
+      payload: addWord,
     });
   } catch (error) {
     res.status(404).json({ success: false, message: 'word cannot be added' });
   }
 });
+
+// creating a word
+// words.post('/new', async (req, res) => {
+//   const wordDetails = req.body;
+//   console.log('wordDetails', wordDetails);
+//   try {
+//     // if (!checkWord.synonyms) {
+//     //   checkWord.synonyms = [];
+//     // }
+
+//     // if (!checkWord.antonyms) {
+//     //   checkWord.antonyms = [];
+//     // }
+//     const existsOrAddWord = await checkWord(wordDetails);
+
+//     res.status(200).json({
+//       success: true,
+//       payload: existsOrAddWord,
+//     });
+//   } catch (error) {
+//     res.status(404).json({ success: false, message: 'word cannot be added' });
+//   }
+// });
 
 words.put('/:dictionaryId', async (req, res) => {
   const { dictionaryId } = req.params;
