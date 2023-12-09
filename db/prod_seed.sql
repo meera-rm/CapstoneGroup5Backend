@@ -2,11 +2,16 @@
 
 \c reading_log
 
-
-INSERT INTO books(book_title,book_author,isbn_number,publication,book_picture,grade,reading_level) VALUES 
-('Night Owl',' Kim .C. Lee','978-0-578-71269-7','Kimberly Lee','https://images-us.bookshop.org/ingram/9780578712697.jpg?height=500&v=v2','K','C'),
-('Cookie"s Week','Cindy Ward','9780399243267','Putnam Juvenile','https://m.media-amazon.com/images/I/514iKUH5J2L._SY464_BO1,204,203,200_.jpg','1','F'),
-('Daddy Hugs','Karen Katz','9781416941200','Putnam Juvenile','https://m.media-amazon.com/images/I/51JOziLrMfL._SX420_BO1,204,203,200_.jpg','K','C');
+INSERT INTO books (book_title, book_author, isbn_number, publication, book_picture, grade, reading_level) VALUES 
+('Night Owl', 'Kim .C. Lee', '978-0-578-71269-7', 'Kimberly Lee', 'https://images-us.bookshop.org/ingram/9780578712697.jpg?height=500&v=v2', 'K', 'C'),
+('Cookie"s Week', 'Cindy Ward', '9780399243267', 'Putnam Juvenile', 'https://m.media-amazon.com/images/I/514iKUH5J2L._SY464_BO1,204,203,200_.jpg', '1', 'F'),
+('Daddy Hugs', 'Karen Katz', '9781416941200', 'Putnam Juvenile', 'https://m.media-amazon.com/images/I/51JOziLrMfL._SX420_BO1,204,203,200_.jpg', 'K', 'C'),
+('Cry for the moon', 'William Woodall', '9780981964126', 'Jeremiah Press', 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1348115035i/6338125.jpg', '4', 'CR'),
+('Huckleberry Finn', 'Mark Twain', '9780142437179', 'Penguin Classics', 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1546096879i/2956.jpg', '4', 'CR'),
+('Harry Potter and the Sorcerer"s Stone', 'J.K. Rowling', '1338878921', 'Scholastics', 'https://m.media-amazon.com/images/W/MEDIAX_792452-T2/images/I/81iqZ2HHD-L._SY522_.jpg', '5', 'CR'),
+('Fahrenheit 451', 'Ray Bradbury', '9781451673319', 'Simon & Schuster', 'https://m.media-amazon.com/images/W/MEDIAX_792452-T2/images/I/61z7RDG3OIL._SY522_.jpg', '5', 'CR'),
+('How to Kill a Mockingbird', 'Harper Lee', '0446310786', 'Grand Central Publishing', 'https://m.media-amazon.com/images/W/MEDIAX_792452-T2/images/I/71FxgtFKcQL._SY522_.jpg', '5', 'CR'),
+('The Hobbit', 'John Ronald Reuel Tolkien', '054792822X', 'Houghton Mifflin', 'https://m.media-amazon.com/images/W/MEDIAX_792452-T2/images/I/710+HcoP38L._SY522_.jpg', '4', 'CR');
 
 
 INSERT INTO teachers(teacher_name,school_name,school_district,school_address,zipcode,state_name,class_subject,teaching_grade,teacher_avatar) VALUES
