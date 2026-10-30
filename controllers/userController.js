@@ -1,6 +1,6 @@
 var express = require('express');
 var users = express.Router();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 const db = require('../db/dbConfig.js');
 const jwtTokens = require('../utils/jwt-helpers.js');

@@ -3,13 +3,16 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "test": "jest"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "db:init": "psql -U postgres -f db/schema.sql",
+    "db:seed": "psql -U postgres -f db/seed.sql"
   },
   "dependencies": {
     "accepts": "^1.3.8",
     "array-flatten": "^1.1.1",
     "assert-options": "^0.7.0",
-    "bcrypt": "^5.1.0",
+    "bcryptjs": "^3.0.3",
     "body-parser": "^1.20.1",
     "buffer-writer": "^2.0.0",
     "bytes": "^3.1.2",
@@ -89,12 +92,6 @@
     "utils-merge": "^1.0.1",
     "vary": "^1.1.2",
     "xtend": "^4.0.2"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "db:init": "psql -U postgres -f db/schema.sql",
-    "db:seed": "psql -U postgres -f db/seed.sql"
   },
   "repository": {
     "type": "git",
