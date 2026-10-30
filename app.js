@@ -24,10 +24,13 @@ const userController = require('./controllers/userController.js');
 const subscriptionController = require('./controllers/subscriptionController.js');
 const dictionaryController = require('./controllers/dictionaryController.js');
 const noteController = require('./controllers/noteController.js');
+const healthController = require('./controllers/healthController.js');
 
 app.get('/', (req, res) => {
   res.status(200).send('Welcome to Scholar Sheep!');
 });
+
+app.use('/api/health',);
 app.use('/api/users', userController);
 app.use('/api/books', bookController);
 app.use('/api/teachers', teachersController);
