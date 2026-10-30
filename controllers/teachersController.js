@@ -2,8 +2,6 @@ const express = require('express');
 
 const teachers = express.Router();
 
-const db = require('../db/dbConfig');
-
 const studentController = require('./studentController');
 teachers.use('/:teacherId/students', studentController);
 
@@ -15,73 +13,74 @@ const {
   updateTeacher,
 } = require('../queries/teachers.js');
 
+// Sends a real 500 when the database fails, instead of a fake success
+const serverError = (res, error, message) => {
+  console.error(message, error);
+  res.status(500).json({ success: false, message });
+};
+
 // get all teachers
 teachers.get('/', async (req, res) => {
-  const getAllTeachers = await allTeachers();
-  if (getAllTeachers) {
-    res.status(200).json({
-      success: true,
-      payload: getAllTeachers,
-    });
-  } else {
-    res.status(404).send('There are no teachers.');
+  try {
+    const all = await allTeachers();
+    res.status(200).json({ success: true, payload: all });
+  } catch (error) {
+    serverError(res, error, 'Could not load teachers');
   }
 });
 
 // get single teacher
 teachers.get('/:id', async (req, res) => {
-  const { id } = req.params;
-  const singleTeacher = await oneTeacher(id);
-  if (singleTeacher) {
-    res.status(200).json({
-      success: true,
-      payload: singleTeacher,
-    });
-  } else {
-    res.status(404).send('This particular teacher cannot be found.');
+  try {
+    const teacher = await oneTeacher(req.params.id);
+    if (!teacher) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'This particular teacher cannot be found.' });
+    }
+    res.status(200).json({ success: true, payload: teacher });
+  } catch (error) {
+    serverError(res, error, 'Could not load teacher');
   }
 });
 
 // creating a teacher (new)
 teachers.post('/new', async (req, res) => {
-  const newTeacher = req.body;
-
   try {
-    const addTeacher = await createTeacher(newTeacher);
-    console.log(addTeacher);
-    res.status(200).json({
-      success: true,
-      payload: addTeacher[0],
-    });
+    const added = await createTeacher(req.body);
+    res.status(200).json({ success: true, payload: added });
   } catch (error) {
-    res
-      .status(404)
-      .json({ success: false, message: 'Teacher cannot be added' });
+    serverError(res, error, 'Teacher cannot be added');
   }
 });
 
+// updating a teacher
 teachers.put('/:teacherId', async (req, res) => {
-  const { teacherId } = req.params;
   try {
-    const updatedTeacher = await updateTeacher(req.body, teacherId);
-    console.log('inupdate query', updatedTeacher);
-    res.status(200).json({ success: true, payload: updatedTeacher });
+    const updated = await updateTeacher(req.body, req.params.teacherId);
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Teacher not found' });
+    }
+    res.status(200).json({ success: true, payload: updated });
   } catch (error) {
-    console.log(error);
-    res
-      .status(404)
-      .json({ success: false, message: 'Teacher cannot be updated' });
+    serverError(res, error, 'Teacher cannot be updated');
   }
 });
 
 // deleting a teacher
 teachers.delete('/:id', async (req, res) => {
-  const { id } = req.params;
-  const deleting = await deleteTeacher(id);
-  if (deleting.id) {
-    res.status(200).json({ success: true, payload: deleting });
-  } else {
-    res.status(404).json({ success: false, payload: { id: undefined } });
+  try {
+    const deleted = await deleteTeacher(req.params.id);
+    if (!deleted) {
+      return res
+        .status(404)
+        .json({ success: false, payload: { id: undefined } });
+    }
+    res.status(200).json({ success: true, payload: deleted });
+  } catch (error) {
+    serverError(res, error, 'Teacher cannot be deleted');
   }
 });
 

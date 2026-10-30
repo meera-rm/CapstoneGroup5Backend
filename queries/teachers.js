@@ -1,40 +1,19 @@
 const db = require('../db/dbConfig');
 
-// display all teachers not sure if we need this route but here it is anyway
+// Each query lets errors propagate (throw) so the controller can send a 500
+// instead of returning the Error object as if it were data.
 
-const allTeachers = async () => {
-  try {
-    return await db.any('SELECT * FROM teachers');
-  } catch (error) {
-    return error;
-  }
-};
+const allTeachers = () => db.any('SELECT * FROM teachers');
 
-// get one teacher
-const oneTeacher = async (id) => {
-  try {
-    return await db.one('SELECT * FROM teachers WHERE teacher_id=$1', id);
-  } catch (error) {
-    return error;
-  }
-};
+// oneOrNone: returns null (instead of throwing) when no teacher has this id
+const oneTeacher = (id) =>
+  db.oneOrNone('SELECT * FROM teachers WHERE teacher_id=$1', id);
 
-// delete a teacher
-const deleteTeacher = async (id) => {
-  try {
-    return await db.one(
-      'DELETE FROM teachers WHERE id=$1 RETURNING *',
-      teacher_id
-    );
-  } catch (error) {
-    return error;
-  }
-};
+const deleteTeacher = (id) =>
+  db.oneOrNone('DELETE FROM teachers WHERE teacher_id=$1 RETURNING *', id);
 
-// creating new teacher acct
-
-const createTeacher = async (teacher) => {
-  let {
+const createTeacher = (teacher) => {
+  const {
     teacher_name,
     school_name,
     school_district,
@@ -43,34 +22,27 @@ const createTeacher = async (teacher) => {
     state_name,
     class_subject,
     teaching_grade,
+    teacher_avatar,
   } = teacher;
-  
-  try {
-    const newTeacher = await db.one(
-      'INSERT INTO teachers(teacher_name, school_name, school_district, school_address, zipcode, state_name, class_subject, teaching_grade) VALUES ($1, $2, $3, $4, $5, $6, $7 , $8 ) RETURNING *',
-      [
-        teacher_name,
-        school_name,
-        school_district,
-        school_address,
-        zipcode,
-        state_name,
-        class_subject,
-        teaching_grade,
-      ]
-    );
 
-    return newTeacher;
-  } catch (error) {
-    console.log(error.message || error);
-    return error;
-  }
+  return db.one(
+    'INSERT INTO teachers(teacher_name, school_name, school_district, school_address, zipcode, state_name, class_subject, teaching_grade, teacher_avatar) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+    [
+      teacher_name,
+      school_name,
+      school_district,
+      school_address,
+      zipcode,
+      state_name,
+      class_subject,
+      teaching_grade,
+      teacher_avatar,
+    ]
+  );
 };
 
-// update/edit teacher acct
-
-const upDateTeacher = async (teacher, teacherId) => {
-  let [
+const updateTeacher = (teacher, teacherId) => {
+  const {
     teacher_name,
     school_name,
     school_district,
@@ -79,26 +51,24 @@ const upDateTeacher = async (teacher, teacherId) => {
     state_name,
     class_subject,
     teaching_grade,
-  ] = teacher;
-  try {
-    return await db.one(
-      'UPDATE teachers SET teacher_name = $1, school_name = $2, school_district = $3, school_address = $4, zipcode = $5, state_name = $6, class_subject = $7, teaching_grade=$8 WHERE teacher_id = $9 RETURNING *',
-      [
-        teacher_name,
-        school_name,
-        school_district,
-        school_address,
-        zipcode,
-        state_name,
-        class_subject,
-        teaching_grade,
-        teacherId,
-      ]
-    );
-  } catch (error) {
-    console.log(error.message || error);
-    return error;
-  }
+    teacher_avatar,
+  } = teacher;
+
+  return db.oneOrNone(
+    'UPDATE teachers SET teacher_name=$1, school_name=$2, school_district=$3, school_address=$4, zipcode=$5, state_name=$6, class_subject=$7, teaching_grade=$8, teacher_avatar=COALESCE($9, teacher_avatar) WHERE teacher_id=$10 RETURNING *',
+    [
+      teacher_name,
+      school_name,
+      school_district,
+      school_address,
+      zipcode,
+      state_name,
+      class_subject,
+      teaching_grade,
+      teacher_avatar,
+      teacherId,
+    ]
+  );
 };
 
 module.exports = {
@@ -106,5 +76,5 @@ module.exports = {
   oneTeacher,
   deleteTeacher,
   createTeacher,
-  upDateTeacher,
+  updateTeacher,
 };

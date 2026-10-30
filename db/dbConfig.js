@@ -8,7 +8,7 @@ const { DATABASE_URL, PG_HOST, PG_PORT, PG_DATABASE, PG_USER } = process.env;
 const cn = DATABASE_URL
   ? {
       connectionString: DATABASE_URL,
-      max: 30,
+      max: 5, // small pool: each Vercel instance opens its own
       ssl: {
         rejectUnauthorized: false,
       },
