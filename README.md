@@ -273,6 +273,57 @@ UPDATE users SET user_role = 'admin' WHERE LOWER(user_email) = 'student1@test.co
 
 ---
 
+## Developer commands
+
+### Generate JWT secrets
+Run this **twice** and use a different output for each secret. Paste them into `.env` (and into Vercel's environment variables). Never commit or share them.
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+```dotenv
+ACCESS_TOKEN_SECRET=<first output>
+REFRESH_TOKEN_SECRET=<second output>
+```
+
+### Install the rate limiter
+Used by `routes/auth.js` to limit login and register attempts (10 per IP per 15 minutes).
+
+```bash
+npm install express-rate-limit
+```
+
+On Vercel, `app.js` needs `app.set('trust proxy', 1)` so each visitor's IP is counted separately.
+
+### Check the app loads
+Catches syntax errors, missing imports and missing packages before you push.
+
+```bash
+node -e "require('./app.js'); console.log('app loads OK')"
+```
+
+### Check query functions don't swallow errors
+Query files should never use `res` or `return error`. This should print nothing:
+
+```bash
+grep -n "return error\|res\.status" queries/*.js | grep -v "//"
+```
+
+### Test the login rate limit
+Start the server first (`npm start`), then run this in a second terminal. Expect ten `401` responses, then `429`:
+
+```bash
+for i in $(seq 1 11); do
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:3010/api/auth/login \
+    -H "Content-Type: application/json" -d '{"user_email":"x@x.com","user_password":"wrongpass"}'
+done
+```
+
+`000` means nothing is running on port 3010: start the server, or use the port from your `.env`.
+
+---
+
 ## Git housekeeping
 
 ### Unstage a folder (keep the files)
