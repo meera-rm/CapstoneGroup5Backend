@@ -145,6 +145,8 @@ Base URL (local): `http://localhost:3010`
 
 Full request and response examples with curl: **[docs/APICURL.md](docs/APICURL.md)**
 
+Interactive docs (Swagger UI): **`GET /api-docs`**, public. Every endpoint below can be tried from the browser there; see [API documentation (Swagger)](#api-documentation-swagger).
+
 ### Auth: `/api/auth`
 
 | Method | Route | Access | Description |
@@ -173,6 +175,7 @@ Successful register, login and Google sign-in all return:
 
 | Base route | Controller | Main routes |
 |---|---|---|
+| `/api-docs` | `swagger-ui-express` + `docs/openapi.yaml` (mounted in `app.js`) | `GET /` (Swagger UI page, public) |
 | `/api/health` | `healthController.js` | `GET /` |
 | `/api/books` | `bookController.js` | `GET /`, `GET /:bookId`, `POST /new`, `PUT /:bookId`, `DELETE /:bookId`, nested `/:bookId/logs` |
 | `/api/logs` | `logController.js` | `GET /`, `GET /:logId`, `POST /new`, `PUT /:logId`, `DELETE /:logId`, nested `/:logId/comments` |
