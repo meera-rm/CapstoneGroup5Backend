@@ -21,7 +21,8 @@ const {
   createGoogleUser,
 } = require('../queries/users');
 
-const {jwtTokens} = require('../utils/jwt-helpers');
+
+const { jwtTokens, verifyRefreshToken } = require('../utils/jwt-helpers');
 const { authenticate } = require('../middleware/auth');
  
 const router = express.Router();
@@ -151,6 +152,36 @@ router.get('/me', authenticate, async (req, res) => {
   } catch (err) {
     console.error('me error:', err);
     return res.status(500).json({ error: 'Could not load user' });
+  }
+});
+
+
+
+// ---------- 5. Refresh: swap a refresh token for new tokens ----------
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token is required' });
+    }
+
+    let payload;
+    try {
+      payload = verifyRefreshToken(refreshToken); // uses the REFRESH secret, so access tokens fail here
+    } catch (err) {
+      return res.status(401).json({ error: 'Session expired, please log in again' });
+    }
+
+    // Look the user up again, so a role change or a deleted account takes effect now
+    const user = await oneUser(payload.id);
+    if (!user) {
+      return res.status(401).json({ error: 'Account no longer exists' });
+    }
+
+    return res.json({ ...jwtTokens(user), user });
+  } catch (err) {
+    console.error('refresh error:', err);
+    return res.status(500).json({ error: 'Could not refresh session' });
   }
 });
  

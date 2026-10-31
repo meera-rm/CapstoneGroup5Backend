@@ -528,6 +528,98 @@ git config --global core.excludesfile ~/.gitignore_global
 
 ---
 
+## Local database, migrations and the teacher dashboard data
+
+### Local vs production (RDS)
+
+`db/dbConfig.js` uses `DATABASE_URL` whenever it is set, so **uncommented `DATABASE_URL` in `.env` means production**.
+
+- Local work: comment out the `DATABASE_URL=` line in `.env`, so the backend uses `PG_HOST` / `PG_DATABASE` (`reading_log`).
+- Production: uncomment it only when you deliberately need RDS.
+
+Check which database a psql session is on:
+
+```sql
+\conninfo
+```
+
+`Host: rds.amazonaws.com` and `SSL Connection: true` means production. `Socket Directory /tmp` or `SSL Connection: false` means local.
+
+Connect to the local database explicitly (plain `psql` opens a database called `meera`):
+
+```bash
+psql -h localhost -d reading_log
+```
+
+Connect to RDS (the URL is the `DATABASE_URL` value, with `?sslmode=require` added):
+
+```bash
+psql "$(sed -n '2p' .env | sed -E 's/^#?[[:space:]]*DATABASE_URL=//')?sslmode=require"
+```
+
+### Run the migrations
+
+Run from `CapstoneGroup5Backend` (not the frontend folder):
+
+```bash
+npm run db:migrate
+```
+
+The migrations are safe to re-run. `classrooms.sql` creates `classrooms` and `enrollments` and fills them from `students.teachers_id`. The backfill only finds students who already have a `teachers_id`, so assign teachers first, then migrate again.
+
+### Link a teacher to a login
+
+Register the account through `/signup` first, then:
+
+```sql
+UPDATE users SET user_role = 'teacher' WHERE user_email = 'you@example.com';
+UPDATE teachers SET user_id = (SELECT user_id FROM users WHERE user_email = 'you@example.com') WHERE teacher_id = 1;
+```
+
+Check the result. `user_id` must be a number, not blank:
+
+```sql
+SELECT teacher_id, user_id FROM teachers WHERE teacher_id = 1;
+```
+
+**Watch out:** if the email doesn't exist, the second `UPDATE` still reports `UPDATE 1` and sets `user_id` to NULL. Always check with the `SELECT`.
+
+**Role changes need a new login.** The role is stored in the token, so an old token keeps the old role. Log in again after changing a role.
+
+### Test `/api/teachers/me`
+
+1. Log in on the site, then copy `scholarsheep_token` from DevTools → Application → Local Storage.
+2. In the terminal, store the token in a variable (keep it on one line, with no quotes or line breaks around it):
+   ```bash
+   TOKEN='paste-token-here'
+   curl -i -H "Authorization: Bearer $TOKEN" http://localhost:3010/api/teachers/me
+   ```
+3. Decode the token to check the role:
+   ```bash
+   echo "$TOKEN" | cut -d. -f2 | python3 -c "import sys,base64,json; p=sys.stdin.read().strip(); p+='='*(-len(p)%4); print(json.loads(base64.urlsafe_b64decode(p)))"
+   ```
+
+| Response | Meaning |
+|---|---|
+| `200` with `students` | Working |
+| `400 Bad Request` | The token was pasted with a line break or stray quotes |
+| `401 Invalid token` | Wrong or expired token |
+| `403` | The token's role isn't `teacher` or `admin`. Log in again |
+| `404` | No teacher row is linked to this login |
+| `500` | Check the backend terminal for the real error |
+
+### Common errors
+
+- **`relation "users" does not exist`**: the migrations haven't run on the database the backend is using. Run `npm run db:migrate`.
+- **`Failed to fetch` on the frontend**: the backend isn't running, or `VITE_API_URL` is wrong. It must be `http://localhost:3010`, with no `/api` and no `https`. Restart `npm run dev` after changing `.env`.
+- **`net::ERR_SSL_PROTOCOL_ERROR`**: the address starts with `https://`. Local backends use `http://`.
+- **`Route not found`**: `/api` is doubled in `VITE_API_URL`, or the backend is out of date. Restart it.
+- **`ReferenceError: x is not defined`**: a function is used in a controller without being imported. Check the `require` at the top of the file, and check that the query file exports it.
+- **`zsh: command not found: UPDATE`**: SQL was typed in the shell. Run `psql` first.
+- **Stuck `"` prompt in psql**: a quote was pasted without a closing quote. Press Ctrl+C, then `\q`.
+
+---
+
 ## Roadmap
 
 - [ ] Staging environment (separate database, Vercel Preview, Netlify branch deploy): plan in [docs/STAGING.md](docs/STAGING.md)
