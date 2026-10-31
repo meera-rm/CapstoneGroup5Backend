@@ -273,6 +273,71 @@ UPDATE users SET user_role = 'admin' WHERE LOWER(user_email) = 'student1@test.co
 
 ---
 
+## Git housekeeping
+
+### Unstage a folder (keep the files)
+Takes everything in `tests/` out of the next commit. The files stay on disk.
+
+```bash
+git restore --staged tests/
+# older Git: git reset HEAD tests/
+git status   # tests/ should no longer be under "Changes to be committed"
+```
+
+To keep a folder out of Git permanently, add it to `.gitignore`:
+
+```bash
+echo "tests/" >> .gitignore
+```
+
+### `.DS_Store` still shows as modified
+`.gitignore` only applies to files Git isn't already tracking. `.DS_Store` was committed before it was added to `.gitignore`, so Git keeps tracking it.
+
+**Stop tracking it (recommended).** The file stays on your Mac; it's only removed from Git:
+
+```bash
+git rm --cached .DS_Store
+git commit -m "Remove .DS_Store from the repo"
+git push
+```
+
+**Copies in subfolders:**
+
+```bash
+git ls-files | grep .DS_Store                                     # list them
+git ls-files -z | grep -z .DS_Store | xargs -0 git rm --cached    # untrack all
+git commit -m "Stop tracking .DS_Store files"
+```
+
+**Committed but not pushed yet:** fix the last commit instead of adding a new one:
+
+```bash
+git rm --cached .DS_Store
+git commit --amend --no-edit
+```
+
+Never `--amend` a commit that has already been pushed.
+
+**Erase it from all history.** This rewrites every commit and needs a force push, which breaks other clones. Only worth it for secrets, and rotate the secret first:
+
+```bash
+pip install git-filter-repo
+git filter-repo --path .DS_Store --invert-paths --force
+git remote add origin git@github.com:meera-rm/CapstoneGroup5Backend.git
+git push --force origin main
+```
+
+**Ignore `.DS_Store` in every repo on this Mac:**
+
+```bash
+echo ".DS_Store" >> ~/.gitignore_global
+git config --global core.excludesfile ~/.gitignore_global
+```
+
+**Check:** `git ls-files | grep .DS_Store` should print nothing.
+
+---
+
 ## Roadmap
 
 - [ ] `POST /api/auth/refresh` to swap a refresh token for a new access token

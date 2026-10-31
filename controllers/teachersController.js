@@ -24,16 +24,23 @@ const serverError = (res, error, message) => {
 };
 
 // get all teachers
+// Without ?page: every teacher. With ?page=&limit=: one page plus pagination info.
 teachers.get('/', async (req, res) => {
-
-  const { studentId } = req.params;
-
-  if (!req.query.page) {            
-    return res.json(await getAllTeachers(studentId));
+  try {
+    if (!req.query.page) {
+      const all = await getAllTeachers();
+      return res.status(200).json({ success: true, payload: all });
+    }
+    const { page, limit, offset } = getPagination(req.query, 10);
+    const { teachers: rows, total } = await getTeachersPage(limit, offset);
+    res.status(200).json({
+      success: true,
+      payload: rows,
+      pagination: buildMeta(page, limit, total),
+    });
+  } catch (error) {
+    serverError(res, error, 'Could not load teachers');
   }
-  const { page, limit, offset } = getPagination(req.query, 10);
-  const { students: rows, total } = await getTeachersPage(studentId, limit, offset);
-  res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
 });
 
 // get single teacher

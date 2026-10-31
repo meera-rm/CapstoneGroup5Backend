@@ -4,16 +4,17 @@ const db = require('../db/dbConfig');
 // instead of returning the Error object as if it were data.
 
 
-const getTeachersPage = async (studentId, limit, offset) => {
-  const where = studentId ? 'WHERE students_id = $/studentId/' : '';
-  const params = { studentId, limit, offset };
-  const students = await db.any(
-    `SELECT * FROM students ${where} ORDER BY student_id LIMIT $/limit/ OFFSET $/offset/`, params);
-  const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM students ${where}`, params);
-  return { students, total };
+// One page of teachers plus the total count, for ?page=&limit=
+const getTeachersPage = async (limit, offset) => {
+  const teachers = await db.any(
+    'SELECT * FROM teachers ORDER BY teacher_id LIMIT $/limit/ OFFSET $/offset/',
+    { limit, offset }
+  );
+  const { total } = await db.one('SELECT COUNT(*)::int AS total FROM teachers');
+  return { teachers, total };
 };
 
-const getAllTeachers = () => db.any('SELECT * FROM teachers');
+const getAllTeachers = () => db.any('SELECT * FROM teachers ORDER BY teacher_id');
 
 // oneOrNone: returns null (instead of throwing) when no teacher has this id
 const oneTeacher = (id) =>
