@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 
 const app = express();
-app.set('trust proxy', 1); 
+app.set('trust proxy', 1); //the login rate limiter counts each visitor separately on Vercel.
 const cors = require('cors');
 var path = require('path');
 var cookieParser = require('cookie-parser');
