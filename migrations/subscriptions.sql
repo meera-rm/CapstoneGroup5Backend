@@ -1,5 +1,5 @@
 -- Subscriptions table used by queries/subscriptions.js and /api/subscriptions.
--- Same columns as the original production schema (db/prod_schema.sql), so a
+-- Same columns as the original production schema (db/legacy/prod_schema.sql), so a
 -- database that already has this table is left unchanged.
 CREATE TABLE IF NOT EXISTS subscriptions (
   subscription_id SERIAL PRIMARY KEY,

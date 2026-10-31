@@ -35,7 +35,7 @@ One RDS instance can hold several databases, each with completely separate data,
    ```
 3. Build the tables by running the migrations against it (set `DATABASE_URL` to the RDS URL ending in `/reading_log_staging`):
    ```bash
-   node migrations/migrations.js
+   npm run db:migrate
    ```
    The seeds (books, teachers, students, dictionary words) run automatically because the tables start empty.
 

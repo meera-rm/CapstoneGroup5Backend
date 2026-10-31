@@ -33,6 +33,8 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,   // 15 minutes
   limit: 10,                  // 10 attempts per IP per window
   message: { error: 'Too many attempts, please try again in 15 minutes' },
+  // Jest sets NODE_ENV=test; the auth tests send many requests from one "visitor"
+  skip: () => process.env.NODE_ENV === 'test',
 });
  
 // Same response for every login method → same JWT → RBAC works the same way

@@ -109,22 +109,32 @@ Don't add `?sslmode=require` to `DATABASE_URL`. SSL is configured in `db/dbConfi
 
 ### 4. Set up the database
 
-**Migrations** create or update the tables. They're safe to run more than once:
+The **migrations** in `migrations/` are the source of truth for the schema. They create any missing tables, update existing ones, and add seed data (books, teachers, students, dictionary words) only when those tables are empty, so they're **safe to run more than once** and never drop data.
 
 ```bash
-node migrations/migrations.js
+npm run db:migrate        # same as: node migrations/migrations.js
 ```
 
-The runner executes, in order: `initial_schema.sql`, `legacy_tables.sql`, `logs_pagination_index.sql`, `google_login.sql`.
+The runner executes, in order: `initial_schema.sql`, `legacy_tables.sql`, `logs_pagination_index.sql`, `google_login.sql`, `subscriptions.sql`.
 
-**Local only (optional):** reset and seed a local database:
+It uses the database from `.env`: `DATABASE_URL` if set (RDS), otherwise the `PG_*` values (local). **Check which one before running.**
+
+**Local database from scratch:**
 
 ```bash
-npm run db:init   # runs db/schema.sql (drops and recreates tables)
-npm run db:seed   # runs db/seed.sql
+createdb reading_log      # once (uses your local Postgres)
+npm run db:migrate
 ```
 
-`db:init` drops tables. Never point it at production.
+**Reset a local database** (deletes all local data, then rebuilds it):
+
+```bash
+dropdb reading_log && createdb reading_log && npm run db:migrate
+```
+
+Never run `dropdb` against RDS.
+
+The original 2022 `schema.sql` and `seed.sql` are in `db/legacy/` for reference only. They're out of date and aren't used.
 
 ### 5. Run
 
@@ -354,8 +364,7 @@ Things specific to this API:
 │   └── STAGING.md         # Plan for a staging environment (not set up yet)
 └── db/
     ├── dbConfig.js        # pg-promise connection (SSL for RDS)
-    ├── schema.sql         # Local schema (npm run db:init)
-    └── seed.sql           # Local seed data (npm run db:seed)
+    └── legacy/            # Original 2022 schema.sql + seed.sql (reference only, not used)
 ```
 
 **Conventions**
