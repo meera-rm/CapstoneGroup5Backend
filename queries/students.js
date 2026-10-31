@@ -21,6 +21,10 @@ const getAllStudents = (teacherId) =>
     : db.any('SELECT * FROM students ORDER BY student_id');
 
 // Get one: the student, or null
+// A parent's children: students whose parent_email matches the parent's login email
+const getStudentsByParentEmail = (email) =>
+  db.any('SELECT * FROM students WHERE LOWER(parent_email) = LOWER($1) ORDER BY student_id', email);
+
 const getAStudent = (id) => db.oneOrNone('SELECT * FROM students WHERE student_id=$1', id);
 
 // Create: always exactly one new row
@@ -66,6 +70,7 @@ const updateStudent = (student, studentId) => {
 };
 
 module.exports = {
+  getStudentsByParentEmail,
   getStudentsPage,
   getAStudent,
   createStudent,

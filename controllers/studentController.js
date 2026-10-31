@@ -14,6 +14,7 @@ const logController = require('./logController.js');
 students.use('/:studentId/logs', logController);
 
 const {
+  getStudentsByParentEmail,
   getAllStudents,
   getStudentsPage,
   getAStudent,
@@ -22,11 +23,29 @@ const {
   deleteStudent,
 } = require('../queries/students');
 
+// Parents only ever see their own children (students.parent_email = their login email).
+const isParent = (user) => user.role === 'parent';
+const isParentOf = (user, student) =>
+  !!student.parent_email && student.parent_email.toLowerCase() === (user.email || '').toLowerCase();
+
+// My children: GET /api/students/mine  (parent dashboard)
+// Must be above '/:studentId', or Express would treat "mine" as an id.
+students.get('/mine', authorize('parent'), async (req, res) => {
+  try {
+    res.json(await getStudentsByParentEmail(req.user.email));
+  } catch (error) {
+    sendDbError(res, error, 'Could not load your children');
+  }
+});
+
 // Index
 // Without ?page: a plain array (unchanged). With ?page: { success, payload, pagination }.
 students.get('/', async (req, res) => {
   const { teacherId } = req.params;
   try {
+    if (isParent(req.user)) {
+      return res.json(await getStudentsByParentEmail(req.user.email));
+    }
     if (!req.query.page) {
       return res.json(await getAllStudents(teacherId));
     }
@@ -43,6 +62,9 @@ students.get('/:studentId', async (req, res) => {
   try {
     const student = await getAStudent(req.params.studentId);
     if (!student) return res.status(404).json({ error: 'Student with given id not found' });
+    if (isParent(req.user) && !isParentOf(req.user, student)) {
+      return res.status(403).json({ error: 'You can only view your own children' });
+    }
     res.json(student);
   } catch (error) {
     sendDbError(res, error, 'Could not load student');

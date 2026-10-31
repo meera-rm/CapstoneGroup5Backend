@@ -13,16 +13,19 @@ notes.use('/:userId/notes', userController);
 
 const {
   getAllNotes,
+  getNotesByUser,
   getANote,
   createNote,
   updateNote,
   deleteNote,
 } = require('../queries/notes');
 
-// Index
+// Index: admin sees every note, everyone else only their own
 notes.get('/', async (req, res) => {
   try {
-    res.status(200).json({ success: true, payload: await getAllNotes() });
+    const payload =
+      req.user.role === 'admin' ? await getAllNotes() : await getNotesByUser(req.user.id);
+    res.status(200).json({ success: true, payload });
   } catch (error) {
     sendDbError(res, error, 'Could not load notes');
   }
@@ -34,6 +37,10 @@ notes.get('/:noteId', async (req, res) => {
     const noteFound = await getANote(req.params.noteId);
     if (!noteFound) {
       return res.status(404).json({ success: false, message: 'Cannot find the note with the given id' });
+    }
+    // Only the owner or an admin can read a note
+    if (!canModify(req.user, noteFound.users_id)) {
+      return res.status(403).json({ success: false, message: 'You can only view your own notes' });
     }
     res.status(200).json({ success: true, payload: noteFound });
   } catch (error) {

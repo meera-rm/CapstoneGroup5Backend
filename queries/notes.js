@@ -3,8 +3,12 @@ const db = require('../db/dbConfig.js');
 // Query functions never send responses (there is no `res` here).
 // They return data, return null when nothing matches, or throw on a database error.
 
-// Get all: a list
+// Get all: a list (admin only — every user's notes)
 const getAllNotes = () => db.any('SELECT * FROM notes ORDER BY note_id');
+
+// Get one user's notes: a list (empty if they have none)
+const getNotesByUser = (userId) =>
+  db.any('SELECT * FROM notes WHERE users_id=$1 ORDER BY note_id', userId);
 
 // Get one: the note, or null
 const getANote = (noteId) => db.oneOrNone('SELECT * FROM notes WHERE note_id=$1', noteId);
@@ -33,6 +37,7 @@ const deleteNote = (noteId) =>
 
 module.exports = {
   getAllNotes,
+  getNotesByUser,
   getANote,
   createNote,
   updateNote,

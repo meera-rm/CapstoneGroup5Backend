@@ -6,7 +6,8 @@ const { authenticate } = require('../middleware/auth');
 const { sendDbError } = require('../utils/dbErrors');
 const { canModify } = require('../utils/ownership');
 
-words.use(authenticate); // every dictionary route needs a token
+// Reading words is public (Vocabulary + Flashcards pages work logged out).
+// Adding needs a login; editing/deleting is owner or admin only.
 const userController = require('./userController');
 words.use('/:userId/dictionary', userController);
 
@@ -40,7 +41,7 @@ words.get('/:word', async (req, res) => {
 });
 
 // Create a word: it always belongs to the logged-in user (users_id in the body is ignored)
-words.post('/', async (req, res) => {
+words.post('/', authenticate, async (req, res) => {
   try {
     const addWord = await createWord({ ...req.body, users_id: req.user.id });
     res.status(200).json({ success: true, payload: addWord });
@@ -50,7 +51,7 @@ words.post('/', async (req, res) => {
 });
 
 // Update a word: only the owner or an admin
-words.put('/:dictionaryId', async (req, res) => {
+words.put('/:dictionaryId', authenticate, async (req, res) => {
   try {
     const existing = await getWordById(req.params.dictionaryId);
     if (!existing) return res.status(404).json({ success: false, message: 'Word not found' });
@@ -67,7 +68,7 @@ words.put('/:dictionaryId', async (req, res) => {
 });
 
 // Delete a word: only the owner or an admin
-words.delete('/:id', async (req, res) => {
+words.delete('/:id', authenticate, async (req, res) => {
   try {
     const existing = await getWordById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, payload: { id: undefined } });

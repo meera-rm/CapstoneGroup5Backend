@@ -13,7 +13,7 @@ const swaggerUi = require('swagger-ui-express');
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3010', 'https://capstone-group5-backend.vercel.app', 'https://scholarsheep.netlify.app'],
+  origin: ['http://localhost:3000', 'http://localhost:3010', 'https://capstone-group5-backend.vercel.app', 'https://scholarsheep.netlify.app'],
 }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({
