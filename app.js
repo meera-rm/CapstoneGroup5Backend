@@ -6,8 +6,6 @@ const app = express();
 app.set('trust proxy', 1); //the login rate limiter counts each visitor separately on Vercel.
 const cors = require('cors');
 const path = require('path');
-const cookieParser = require('cookie-parser');
-const logger = require('morgan');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const YAML = require('yaml');
@@ -15,7 +13,7 @@ const swaggerUi = require('swagger-ui-express');
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://YOUR-SITE.netlify.app'],
+  origin: ['http://localhost:3000', 'https://capstone-group5-backend.vercel.app/', 'https://scholarsheep.netlify.app/'],
 }));
 app.use(express.json());
 app.use(bodyParser.urlencoded({
