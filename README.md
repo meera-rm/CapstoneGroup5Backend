@@ -491,6 +491,7 @@ git config --global core.excludesfile ~/.gitignore_global
 
 ## Roadmap
 
+- [ ] Staging environment (separate database, Vercel Preview, Netlify branch deploy): plan in [docs/STAGING.md](docs/STAGING.md)
 - [ ] `POST /api/auth/refresh` to swap a refresh token for a new access token
 - [ ] Protect the original resource routes (books, logs, students, ...) with `authenticate` / `authorize`
 - [ ] Automated tests for the auth and users routes
