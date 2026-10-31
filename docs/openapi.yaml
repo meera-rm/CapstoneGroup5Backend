@@ -10,10 +10,10 @@ info:
 
     Login: register and Google sign-in allow 10 attempts per 15 minutes per IP. Lists accept ?page= and ?limit= (max 50).
 servers:
-  - url: http://localhost:3010
-    description: Local
   - url: https://capstone-group5-backend.vercel.app
     description: Production
+  - url: http://localhost:3010
+    description: Local
 components: 
   securitySchemes:
     bearerAuth:
