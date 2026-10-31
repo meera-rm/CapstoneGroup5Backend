@@ -5,11 +5,13 @@ const express = require('express');
 const app = express();
 app.set('trust proxy', 1); //the login rate limiter counts each visitor separately on Vercel.
 const cors = require('cors');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
-var bodyParser = require('body-parser');
-
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const YAML = require('yaml');
+const swaggerUi = require('swagger-ui-express');
 
 // Middleware
 app.use(cors({
@@ -71,7 +73,22 @@ app.use('/api/subscriptions', subscriptionController);
 app.use('/api/dictionary', dictionaryController);
 app.use('/api/notes', noteController);
 
-
+// Swagger docs at /api-docs
+const openapiSpec = YAML.parse(
+  fs.readFileSync(path.join(__dirname, 'docs', 'openapi.yaml'), 'utf8')
+);
+const SWAGGER_CDN = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.34.1';
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec, {
+    customCssUrl: `${SWAGGER_CDN}/swagger-ui.css`,
+    customJs: [
+      `${SWAGGER_CDN}/swagger-ui-bundle.js`,
+      `${SWAGGER_CDN}/swagger-ui-standalone-preset.js`,
+    ],
+  })
+);
 
 // 404 handler
 app.use((req, res) => {
