@@ -1,14 +1,8 @@
 const db = require('../db/dbConfig.js');
 
-const getAdmin = async (userId) => {
-    try {
-      const theAdmin = await db.any('SELECT * FROM firebase WHERE id = $1' , userId);
-      return theAdmin;
-    } catch (error) {
-      return error;
-    }
-  };
+// Errors throw to the route; the route decides the HTTP status.
+const getAdmin = (userId) => db.any('SELECT * FROM firebase WHERE id = $1', userId);
 
 module.exports = {
-    getAdmin
-}
+  getAdmin,
+};

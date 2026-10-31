@@ -27,6 +27,13 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const SALT_ROUNDS = 10;
+
+const rateLimit = require('express-rate-limit');
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,   // 15 minutes
+  limit: 10,                  // 10 attempts per IP per window
+  message: { error: 'Too many attempts, please try again in 15 minutes' },
+});
  
 // Same response for every login method → same JWT → RBAC works the same way
 function sendAuth(res, user, status = 200) {
@@ -35,7 +42,7 @@ function sendAuth(res, user, status = 200) {
 }
  
 // ---------- 1. Email + password: REGISTER ----------
-router.post('/register', async (req, res) => {
+router.post('/register',  authLimiter, async (req, res) => {
   try {
     const { user_name, user_email, user_password } = req.body;
  
@@ -70,7 +77,7 @@ router.post('/register', async (req, res) => {
 });
  
 // ---------- 2. Email + password: LOGIN ----------
-router.post('/login', async (req, res) => {
+router.post('/login',  authLimiter, async (req, res) => {
   try {
     const { user_email, user_password } = req.body;
     if (!user_email || !user_password) {
@@ -98,7 +105,7 @@ router.post('/login', async (req, res) => {
 });
  
 // ---------- 3. Google sign-in ----------
-router.post('/google', async (req, res) => {
+router.post('/google',  authLimiter, async (req, res) => {
   try {
     const { credential } = req.body;
     if (!credential) {

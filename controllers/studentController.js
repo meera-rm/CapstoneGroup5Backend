@@ -4,14 +4,15 @@ const express = require('express');
 //access to being able to things like get or set, update or delete
 const students = express.Router({ mergeParams: true });
 
-const db = require('../db/dbConfig');
+const { authenticate, authorize } = require('../middleware/auth');
+const { sendDbError } = require('../utils/dbErrors');
+const { getPagination, buildMeta } = require('../utils/pagination');
+
+students.use(authenticate); // every student route needs a token (before nested routes)
 
 const logController = require('./logController.js');
 students.use('/:studentId/logs', logController);
 
-const { getPagination, buildMeta } = require('../utils/pagination');
-
-//import validation
 const {
   getAllStudents,
   getStudentsPage,
@@ -21,92 +22,62 @@ const {
   deleteStudent,
 } = require('../queries/students');
 
-const { checkPicture } = require('../validations/checkBooks');
-
-//Index
+// Index
+// Without ?page: a plain array (unchanged). With ?page: { success, payload, pagination }.
 students.get('/', async (req, res) => {
-  console.log('get all /');
-
   const { teacherId } = req.params;
-
-  if (!req.query.page) {            
-    return res.json(await getAllStudents(teacherId));
-  }
-  const { page, limit, offset } = getPagination(req.query, 10);
-  const { students: rows, total } = await getStudentsPage(teacherId, limit, offset);
-  res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
-});
-
-//Show
-students.get('/:studentId', async (req, res) => {
-  console.log('get one /:id');
-  const { studentId } = req.params;
-
-  const student = await getAStudent(studentId);
-
-  if (student) {
-    res.json(student);
-  } else {
-    res.status(404).json({ error: 'Student with given id not found' });
-  }
-});
-
-//CREATE
-students.post('/new', async (req, res) => {
-  const newStudent = req.body;
-  // console.log(newStudent)
   try {
-    const addStudent = await createStudent(newStudent);
-    res.status(200).json({
-      success: true,
-      payload: addStudent[0],
-    });
+    if (!req.query.page) {
+      return res.json(await getAllStudents(teacherId));
+    }
+    const { page, limit, offset } = getPagination(req.query, 10);
+    const { students: rows, total } = await getStudentsPage(teacherId, limit, offset);
+    res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
   } catch (error) {
-    res
-      .status(404)
-      .json({ success: false, message: 'Student cannot be added' });
+    sendDbError(res, error, 'Could not load students');
   }
 });
 
-//Update
-students.put('/:studentId', async (req, res) => {
-  const { studentId } = req.params;
+// Show (returns the student object itself, unchanged)
+students.get('/:studentId', async (req, res) => {
   try {
-    const updatedStudent = await updateStudent(req.body, studentId);
-    console.log('inupdate query', updatedStudent);
+    const student = await getAStudent(req.params.studentId);
+    if (!student) return res.status(404).json({ error: 'Student with given id not found' });
+    res.json(student);
+  } catch (error) {
+    sendDbError(res, error, 'Could not load student');
+  }
+});
+
+// Create
+students.post('/new', authorize('teacher', 'admin'), async (req, res) => {
+  try {
+    const addStudent = await createStudent(req.body);
+    res.status(200).json({ success: true, payload: addStudent });
+  } catch (error) {
+    sendDbError(res, error, 'Student cannot be added');
+  }
+});
+
+// Update
+students.put('/:studentId', authorize('teacher', 'admin'), async (req, res) => {
+  try {
+    const updatedStudent = await updateStudent(req.body, req.params.studentId);
+    if (!updatedStudent) return res.status(404).json({ success: false, message: 'Student not found' });
     res.status(200).json({ success: true, payload: updatedStudent });
   } catch (error) {
-    console.log(error);
-    res
-      .status(404)
-      .json({ success: false, message: 'Student Info cannot be updated' });
+    sendDbError(res, error, 'Student info cannot be updated');
   }
 });
 
-//DELETE
-students.delete('/:studentId', async (req, res) => {
-  console.log('Delete /:studentId', req.body, req.params);
-  const { studentId } = req.params;
-
-  const deletedStudent = await deleteStudent(studentId);
-
-  if (deletedStudent) {
-    if (deletedStudent.id) {
-      res.status(200).json({
-        success: true,
-        payload: deletedStudent,
-      });
-    } else {
-      res.status(404).json({
-        success: false,
-        payload: 'not found',
-      });
-    }
-  } else {
-    res.status(500).json({
-      success: false,
-      payload: deletedStudent,
-    });
+// Delete
+students.delete('/:studentId', authorize('teacher', 'admin'), async (req, res) => {
+  try {
+    const deletedStudent = await deleteStudent(req.params.studentId);
+    if (!deletedStudent) return res.status(404).json({ success: false, payload: 'not found' });
+    res.status(200).json({ success: true, payload: deletedStudent });
+  } catch (error) {
+    sendDbError(res, error, 'Student cannot be deleted');
   }
 });
 

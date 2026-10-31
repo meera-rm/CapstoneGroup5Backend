@@ -1,50 +1,31 @@
 const db = require('../db/dbConfig.js');
 
+// Query functions never send responses (there is no `res` here).
+// They return data, return null when nothing matches, or throw on a database error.
+
 const getStudentsPage = async (teacherId, limit, offset) => {
   const where = teacherId ? 'WHERE teachers_id = $/teacherId/' : '';
   const params = { teacherId, limit, offset };
   const students = await db.any(
-    `SELECT * FROM students ${where} ORDER BY student_id LIMIT $/limit/ OFFSET $/offset/`, params);
+    `SELECT * FROM students ${where} ORDER BY student_id LIMIT $/limit/ OFFSET $/offset/`,
+    params
+  );
   const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM students ${where}`, params);
   return { students, total };
 };
 
-const getAllStudents = async (teacherId) => {
+// Get all: a list (all students, or one teacher's students)
+const getAllStudents = (teacherId) =>
+  teacherId
+    ? db.any('SELECT * FROM students WHERE teachers_id=$1 ORDER BY student_id', teacherId)
+    : db.any('SELECT * FROM students ORDER BY student_id');
 
-  let allStudents;
-  try {
-    if (!teacherId) {
-       allStudents = await db.any('SELECT * FROM students ');
-    } else {
-     allStudents = await db.any(
-        'SELECT * FROM students where teachers_id=$1',
-        teacherId
-      );
-    }
-   
+// Get one: the student, or null
+const getAStudent = (id) => db.oneOrNone('SELECT * FROM students WHERE student_id=$1', id);
 
-    return allStudents;
-  } catch (error) {
-    return error;
-  }
-};
-
-const getAStudent = async (id) => {
-  try {
-    const oneStudent = await db.one(
-      'SELECT * FROM students WHERE student_id=$1',
-      id
-    );
-    return oneStudent;
-  } catch (error) {
-    return error;
-  }
-};
-
-
-const createStudent = async (student) => {
-  // console.log('instudetn query',student)
-  let {
+// Create: always exactly one new row
+const createStudent = (student) => {
+  const {
     student_name,
     parent_name,
     parent_email,
@@ -52,47 +33,22 @@ const createStudent = async (student) => {
     grade,
     academic_year,
     reading_level,
-    teachers_id
+    teachers_id,
   } = student;
 
-  try {
-    const newStudent = await db.one(
-      'INSERT INTO students (student_name,parent_name,parent_email, student_email,grade,academic_year,reading_level,teachers_id ) VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [
-        student_name,
-        parent_name,
-        parent_email,
-        student_email,
-        grade,
-        academic_year,
-        reading_level,
-        teachers_id,
-      ]
-    );
-    // console.log('in student query2',newStudent)
-    return newStudent;
-  } catch (error) {
-    console.log(error.message);
-    // throw new Error(error.message);
-    res.status(404).json({ success: false, message: 'Student cannot be added' });
-
-  }
+  return db.one(
+    'INSERT INTO students (student_name, parent_name, parent_email, student_email, grade, academic_year, reading_level, teachers_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+    [student_name, parent_name, parent_email, student_email, grade, academic_year, reading_level, teachers_id]
+  );
 };
 
-const deleteStudent = async (id) => {
-  try {
-    const deletedStudent = await db.one(
-      'DELETE FROM students WHERE student_id = $1 RETURNING *',
-      id
-    );
-    return deletedStudent;
-  } catch (error) {
-    return error;
-  }
-};
+// Delete: the deleted student, or null
+const deleteStudent = (id) =>
+  db.oneOrNone('DELETE FROM students WHERE student_id = $1 RETURNING *', id);
 
-const updateStudent = async ( student, studentId) => {
-  let {
+// Update: the updated student, or null
+const updateStudent = (student, studentId) => {
+  const {
     student_name,
     parent_name,
     parent_email,
@@ -100,28 +56,13 @@ const updateStudent = async ( student, studentId) => {
     grade,
     academic_year,
     reading_level,
-    teachers_id
+    teachers_id,
   } = student;
-  try {
-   
-    return await db.one(
-      'UPDATE students SET student_name=$1,parent_name=$2,parent_email=$3,student_email=$4,grade=$5,academic_year=$6,reading_level=$7,teachers_id=$8  where student_id=$9 RETURNING *',
-      [
-        student_name,
-        parent_name,
-        parent_email,
-        student_email,
-        grade,
-        academic_year,
-        reading_level,
-        teachers_id,
-        studentId,
-      ]
-    );
-    
-  } catch (error) {
-    return error;
-  }
+
+  return db.oneOrNone(
+    'UPDATE students SET student_name=$1, parent_name=$2, parent_email=$3, student_email=$4, grade=$5, academic_year=$6, reading_level=$7, teachers_id=$8 WHERE student_id=$9 RETURNING *',
+    [student_name, parent_name, parent_email, student_email, grade, academic_year, reading_level, teachers_id, studentId]
+  );
 };
 
 module.exports = {

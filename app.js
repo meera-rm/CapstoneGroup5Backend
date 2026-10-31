@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 
 const app = express();
+app.set('trust proxy', 1); 
 const cors = require('cors');
 var path = require('path');
 var cookieParser = require('cookie-parser');
@@ -11,7 +12,9 @@ var bodyParser = require('body-parser');
 
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://YOUR-SITE.netlify.app'],
+}));
 app.use(express.json());
 app.use(bodyParser.urlencoded({
   extended: true

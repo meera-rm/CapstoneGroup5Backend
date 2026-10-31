@@ -1,81 +1,43 @@
 const db = require('../db/dbConfig.js');
 
-const getAllSubscriptions = async () => {
-  try {
-    const allSubscriptions = await db.any('SELECT * FROM subscriptions');
-    console.log('all=', allSubscriptions);
-    return allSubscriptions;
-  } catch (error) {
-    return error;
-  }
-};
+// Query functions never send responses (there is no `res` here).
+// They return data, return null when nothing matches, or throw on a database error.
 
-const getASubscription = async (email) => {
-  try {
-    const subscription = await db.one(
-      'SELECT * FROM subscriptions WHERE email=$1',
-      email
-    );
-    return subscription;
-  } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: `Cannot find the subscription with the given id"`,
-    });
-    // return error;
-  }
-};
-// ON CONFLICT (email) DO NOTHING
-const createSubscription = async (subscription) => {
+// Get all: a list
+const getAllSubscriptions = () => db.any('SELECT * FROM subscriptions');
+
+// Get one by email: the subscription, or null
+const getASubscription = (email) =>
+  db.oneOrNone('SELECT * FROM subscriptions WHERE email=$1', email);
+
+// Create: always exactly one new row
+const createSubscription = (subscription) => {
   const { fullName, email, is_subscribed, is_verified } = subscription;
-  try {
-    return await db.one(
-      'INSERT INTO subscriptions (fullName, email, is_subscribed, is_verified) VALUES ($1, $2, $3, $4) RETURNING *',
-      [fullName, email, is_subscribed, is_verified]
-    );
-  } catch (error) {
-    console.log(error.message);
-    throw error; // Throw the error so it can be caught in the calling function
-  }
+  return db.one(
+    'INSERT INTO subscriptions (fullName, email, is_subscribed, is_verified) VALUES ($1, $2, $3, $4) RETURNING *',
+    [fullName, email, is_subscribed, is_verified]
+  );
 };
 
-const updateSubscription = async (subscription, subscriptionId) => {
-  let { email, fullname, is_verified } = subscription;
-
-  try {
-    // Check if the current email exists in the database
-    const existingSubscription = await db.oneOrNone(
-      'SELECT * FROM subscriptions WHERE subscription_id = $1 '
-    );
-    console.log(existingSubscription);
-
-    if (!existingSubscription) {
-      throw new Error('Subscription not found');
-    }
-    
-    // Update the email address for the subscription
-    const updatedSubscription = await db.one(
-      'UPDATE subscriptions SET email = $1 ,fullname = $2, is_verified= $3 WHERE subscription_id = $4 RETURNING *',
-    
-    );
-    return updatedSubscription;
-  } catch (error) {
-    console.error(error.message);
-    throw error;
-  }
+// Update the subscription that currently has `currentEmail`.
+// Returns the updated subscription, or null if no subscription has that email.
+// Fields left out of the request keep their current values.
+const updateSubscription = (subscription, currentEmail) => {
+  const { email, fullname, is_verified } = subscription;
+  return db.oneOrNone(
+    `UPDATE subscriptions
+       SET email = COALESCE($1, email),
+           fullname = COALESCE($2, fullname),
+           is_verified = COALESCE($3, is_verified)
+     WHERE email = $4
+     RETURNING *`,
+    [email, fullname, is_verified, currentEmail]
+  );
 };
 
-const deleteSubscription = async (email) => {
-  try {
-    return await db.one(
-      'DELETE FROM subscriptions WHERE email=$1 RETURNING *',
-      email
-    );
-  } catch (error) {
-    console.log(error.message || error);
-    return error;
-  }
-};
+// Delete by email: the deleted subscription, or null
+const deleteSubscription = (email) =>
+  db.oneOrNone('DELETE FROM subscriptions WHERE email=$1 RETURNING *', email);
 
 module.exports = {
   getAllSubscriptions,

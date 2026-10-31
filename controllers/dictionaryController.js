@@ -2,8 +2,10 @@ const express = require('express');
 
 const words = express.Router();
 
-const db = require('../db/dbConfig');
+const { authenticate } = require('../middleware/auth');
+const { sendDbError } = require('../utils/dbErrors');
 
+words.use(authenticate); // every dictionary route needs a token
 const userController = require('./userController');
 words.use('/:userId/dictionary', userController);
 
@@ -11,111 +13,59 @@ const {
   allWords,
   deleteWord,
   createWord,
-  checkWord,
   updateWord,
   getAWord,
 } = require('../queries/dictionary.js');
 
-// get all words
+// Get all words
 words.get('/', async (req, res) => {
-  const getAllWords = await allWords();
-  console.log(getAllWords);
-  if (getAllWords) {
-    res.status(200).json({
-      success: true,
-      payload: getAllWords,
-    });
-  } else {
-    res.status(404).send('There are no words.');
+  try {
+    res.status(200).json({ success: true, payload: await allWords() });
+  } catch (error) {
+    sendDbError(res, error, 'Could not load words');
   }
 });
 
-// get single word
-
+// Get a single word
 words.get('/:word', async (req, res) => {
-  const { word } = req.params;
-
   try {
-    const singleWord = await getAWord(word);
-
+    const singleWord = await getAWord(req.params.word);
+    if (!singleWord) return res.status(404).json({ success: false, message: 'Word not found' });
     res.status(200).json({ success: true, payload: singleWord });
   } catch (error) {
-    console.error('Error:', error.message);
-    console.error('Error:', error.response);
-    res.status(500).json({ message: error.message, code: error.code });
+    sendDbError(res, error, 'Could not load word');
   }
 });
 
-// creating a word (new)
+// Create a word
 words.post('/', async (req, res) => {
-  console.log('req', req.body);
-
-  const newWord = req.body;
-
   try {
-    // if (!newWord.synonyms) {
-    //   newWord.synonyms = [];
-    // }
-
-    // if (!newWord.antonyms) {
-    //   newWord.antonyms = [];
-    // }
-
     const addWord = await createWord(req.body);
-
-    res.status(200).json({
-      success: true,
-      payload: addWord,
-    });
+    res.status(200).json({ success: true, payload: addWord });
   } catch (error) {
-    res.status(404).json({ success: false, message: 'word cannot be added' });
+    sendDbError(res, error, 'Word cannot be added');
   }
 });
 
-// creating a word
-// words.post('/new', async (req, res) => {
-//   const wordDetails = req.body;
-//   console.log('wordDetails', wordDetails);
-//   try {
-//     // if (!checkWord.synonyms) {
-//     //   checkWord.synonyms = [];
-//     // }
-
-//     // if (!checkWord.antonyms) {
-//     //   checkWord.antonyms = [];
-//     // }
-//     const existsOrAddWord = await checkWord(wordDetails);
-
-//     res.status(200).json({
-//       success: true,
-//       payload: existsOrAddWord,
-//     });
-//   } catch (error) {
-//     res.status(404).json({ success: false, message: 'word cannot be added' });
-//   }
-// });
-
+// Update a word
 words.put('/:dictionaryId', async (req, res) => {
-  const { dictionaryId } = req.params;
-
   try {
-    const updatedWord = await updateWord(req.body, dictionaryId);
-    console.log('inupdate query', updatedWord);
+    const updatedWord = await updateWord(req.body, req.params.dictionaryId);
+    if (!updatedWord) return res.status(404).json({ success: false, message: 'Word not found' });
     res.status(200).json({ success: true, payload: updatedWord });
   } catch (error) {
-    console.log(error);
-    res.status(404).json({ success: false, message: 'Word cannot be updated' });
+    sendDbError(res, error, 'Word cannot be updated');
   }
 });
 
-// deleting a Word
+// Delete a word
 words.delete('/:id', async (req, res) => {
-  const { id } = req.params;
-  const deleting = await deleteWord(id);
-  if (deleting.id) {
+  try {
+    const deleting = await deleteWord(req.params.id);
+    if (!deleting) return res.status(404).json({ success: false, payload: { id: undefined } });
     res.status(200).json({ success: true, payload: deleting });
-  } else {
-    res.status(404).json({ success: false, payload: { id: undefined } });
+  } catch (error) {
+    sendDbError(res, error, 'Word cannot be deleted');
   }
 });
 

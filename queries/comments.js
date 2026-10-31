@@ -1,105 +1,52 @@
 const db = require('../db/dbConfig.js');
 
+// Query functions never send responses (there is no `res` here).
+// They return data, return null when nothing matches, or throw on a database error.
+
 const getCommentsPage = async (logId, limit, offset) => {
-    try {
-    const where = logId ? 'WHERE logs_id = $/logId/' : '';
-    const params = { logId, limit, offset };
-    const comments = await db.any(
-      `SELECT * FROM comments ${where} ORDER BY comment_id DESC LIMIT $/limit/ OFFSET $/offset/`, params);
-    const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM comments ${where}`, params);
-    return { comments, total };
-  } catch (error) {
-    console.error('getCommentsPage failed:', error.message);
-    throw error; // let the route's catch send a 500
-  }
+  const where = logId ? 'WHERE logs_id = $/logId/' : '';
+  const params = { logId, limit, offset };
+  const comments = await db.any(
+    `SELECT * FROM comments ${where} ORDER BY comment_id DESC LIMIT $/limit/ OFFSET $/offset/`,
+    params
+  );
+  const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM comments ${where}`, params);
+  return { comments, total };
 };
 
+// Get all: a list (all comments, or one log's comments)
+const getAllComments = (logId) =>
+  logId
+    ? db.any('SELECT * FROM comments WHERE logs_id=$1 ORDER BY comment_id', logId)
+    : db.any('SELECT * FROM comments ORDER BY comment_id');
 
-const getAllComments = async (logId) => {
-  let allComments;
-  try {
-    if (!logId) {
-      allComments = await db.any('SELECT * FROM comments ');
-    } else {
-      allComments = await db.any(
-        'SELECT * FROM comments where logs_id=$1',
-        logId
-      );
-    }
+// Get one: the comment, or null
+const getComment = (id) => db.oneOrNone('SELECT * FROM comments WHERE comment_id=$1', id);
 
-    return allComments;
-  } catch (error) {
-    return error;
-  }
+// The first comment on a log, or null
+const getCommentByLogId = (logId) =>
+  db.oneOrNone('SELECT * FROM comments WHERE logs_id=$1 ORDER BY comment_id LIMIT 1', logId);
+
+// Create: always exactly one new row
+const newComment = (comment) => {
+  const { teacher_comments, logs_id, teachers_id } = comment;
+  return db.one(
+    'INSERT INTO comments (teacher_comments, logs_id, teachers_id) VALUES ($1, $2, $3) RETURNING *',
+    [teacher_comments, logs_id, teachers_id]
+  );
 };
 
-const getComment = async (id) => {
-  try {
-    const oneComment = await db.one(
-      'SELECT * FROM comments WHERE comment_id=$1',
-      id
-    );
-    return oneComment;
-  } catch (error) {
-    return error;
-  }
-};
+// Delete: the deleted comment, or null
+const deleteComment = (id) =>
+  db.oneOrNone('DELETE FROM comments WHERE comment_id=$1 RETURNING *', id);
 
-const getCommentByLogId = async (id) => {
-  try {
-    const oneComment = await db.oneOrNone(
-      'SELECT * FROM comments WHERE logs_id=$1',
-      id
-    );
-    return oneComment;
-  } catch (error) {
-    return error;
-  }
-};
-
-const newComment = async (comment) => {
-  let { teacher_comments, logs_id, teachers_id } = comment;
-
-  try {
-    const newComment = await db.one(
-      'INSERT INTO comments (teacher_comments, logs_id,teachers_id) VALUES($1, $2 ,$3) RETURNING *',
-      [teacher_comments, logs_id, teachers_id]
-    );
-    // console.log('new Comment in queries',newComment)
-
-    return newComment;
-  } catch (error) {
-    return error;
-  }
-};
-
-const deleteComment = async (id) => {
-  try {
-    const deletedComment = await db.one(
-      'DELETE FROM comments WHERE comment_id=$1 RETURNING *',
-      id
-    );
-    return deletedComment;
-  } catch (error) {
-    return error;
-  }
-};
-
-const updateComment = async (comment, commentId) => {
-  let { teacher_comments, logs_id, teachers_id } = comment;
-
-  try {
-    const updatedComment = await db.one(
-      'UPDATE comments SET teacher_comments=$1, logs_id=$2, teachers_id=$3 where comment_id=$4 RETURNING *',
-      [teacher_comments, logs_id, teachers_id, commentId]
-    );
-
-    console.log('update comment', updatedComment);
-
-    return updatedComment;
-  } catch (error) {
-    return error;
-  }
+// Update: the updated comment, or null
+const updateComment = (comment, commentId) => {
+  const { teacher_comments, logs_id, teachers_id } = comment;
+  return db.oneOrNone(
+    'UPDATE comments SET teacher_comments=$1, logs_id=$2, teachers_id=$3 WHERE comment_id=$4 RETURNING *',
+    [teacher_comments, logs_id, teachers_id, commentId]
+  );
 };
 
 module.exports = {

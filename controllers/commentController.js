@@ -4,113 +4,88 @@ const express = require('express');
 const comments = express.Router({ mergeParams: true });
 
 const { getPagination, buildMeta } = require('../utils/pagination');
- 
-// const logController = require('./logController.js');
-// comments.use('/logs/logid', logController);
+const { authenticate, authorize } = require('../middleware/auth');
+const { sendDbError } = require('../utils/dbErrors');
 
-const db = require('../db/dbConfig');
+comments.use(authenticate);
 
 const {
+  getCommentsPage,
   getAllComments,
   getComment,
   newComment,
   deleteComment,
   updateComment,
-  getCommentByLogId
+  getCommentByLogId,
 } = require('../queries/comments');
 
-//Index
+// Index
 comments.get('/', async (req, res) => {
-
-  const { logId }=req.params;
+  const { logId } = req.params;
   try {
     if (!req.query.page) {
       return res.json({ success: true, payload: await getAllComments(logId) });
     }
-
     const { page, limit, offset } = getPagination(req.query, 10);
     const { comments: rows, total } = await getCommentsPage(logId, limit, offset);
     res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
   } catch (error) {
-    res.status(404).json({ sucess: false, message: 'no comments found' });
+    sendDbError(res, error, 'Could not load comments');
   }
 });
 
-// //Show
+// Show
 comments.get('/:commentId', async (req, res) => {
-
-  const { commentId } = req.params;
   try {
-    const commentFound = await getComment(commentId);
+    const commentFound = await getComment(req.params.commentId);
+    if (!commentFound) {
+      return res.status(404).json({ success: false, message: 'Cannot find the comment with the given id' });
+    }
     res.status(200).json({ success: true, payload: commentFound });
   } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: 'Cannot find the comment with the given id',
-    });
+    sendDbError(res, error, 'Could not load comment');
   }
 });
 
-
-//get comment by logid
+// Get the comment for a log (payload is null if the log has no comment yet)
 comments.get('/logs/:logId', async (req, res) => {
-
-  const { logId } = req.params;
-
   try {
-    const commentFound = await getCommentByLogId(logId);
+    const commentFound = await getCommentByLogId(req.params.logId);
     res.status(200).json({ success: true, payload: commentFound });
   } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: 'Cannot find the comment with the given id',
-    });
+    sendDbError(res, error, 'Could not load comment');
   }
 });
 
-// CREATE
-
-comments.post('/new',  async (req, res) => {
-
-  const newcomment = req.body;
+// Create
+comments.post('/new', authorize('teacher', 'admin'), async (req, res) => {
   try {
-    const addcomment = await newComment(newcomment);
-    res.status(200).json({
-      success: true,
-      payload: addcomment[0],
-    });
+    const addcomment = await newComment(req.body);
+    res.status(200).json({ success: true, payload: addcomment });
   } catch (error) {
-    // console.log('Caught in error');
-    console.log(error.message);
-    res.status(404).json({ success: false, message: 'comment cannot be added' });
+    sendDbError(res, error, 'Comment cannot be added');
   }
 });
 
-// //update
-comments.put('/:commentId', async (req, res) => {
-  console.log('Put /:commentId');
-  const { commentId } = req.params;
-
+// Update
+comments.put('/:commentId', authorize('teacher', 'admin'), async (req, res) => {
   try {
-    const updatedcomment = await updateComment(req.body, commentId);
+    const updatedcomment = await updateComment(req.body, req.params.commentId);
+    if (!updatedcomment) return res.status(404).json({ success: false, message: 'Comment not found' });
     res.status(200).json({ success: true, payload: updatedcomment });
   } catch (error) {
-    //console.log(error);
-    res
-      .status(404)
-      .json({ success: false, message: 'comment info cannot be updated' });
+    sendDbError(res, error, 'Comment cannot be updated');
   }
 });
 
-// //DELETE
-comments.delete('/:commentId', async (req, res) => {
-  console.log('Delete /:commentId', req.body, req.params);
-  const { commentId } = req.params;
+// Delete
+comments.delete('/:commentId', authorize('teacher', 'admin'), async (req, res) => {
   try {
-    const deletedcomment = await deleteComment(commentId);
+    const deletedcomment = await deleteComment(req.params.commentId);
+    if (!deletedcomment) return res.status(404).json({ success: false, message: 'Comment not found' });
     res.status(200).json({ success: true, payload: deletedcomment });
   } catch (error) {
-    res.status(404).json({ success: false, message: 'comment not found' });
+    sendDbError(res, error, 'Comment cannot be deleted');
   }
 });
 

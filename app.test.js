@@ -15,7 +15,7 @@ test('it should respond with hello world1', async() => {
 
 
  //create a route that shows a student's name based on the URL params
- test('it shoukd show the students name', async() => {
+ test('it should show the students name', async() => {
     const name='Michael'
     const res= await request(app).get(`/students/${name}`);
  })

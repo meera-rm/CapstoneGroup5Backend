@@ -1,7 +1,8 @@
 const express = require('express');
 const subscription = express.Router();
 
-const db = require('../db/dbConfig');
+const { authenticate, authorize } = require('../middleware/auth');
+const { sendDbError } = require('../utils/dbErrors');
 
 const {
   getAllSubscriptions,
@@ -11,103 +12,69 @@ const {
   deleteSubscription,
 } = require('../queries/subscriptions');
 
-//create a subscription
-
+// Create a subscription: public, so visitors can subscribe without an account
 subscription.post('/', async (req, res) => {
   const newSubscription = req.body;
-
-  //Check if both 'firstname' and 'email' are provided in the request body
   if (!newSubscription.fullName || !newSubscription.email) {
     return res.status(400).json({
       success: false,
       message: 'Both fullName and email are required fields.',
     });
   }
-
   try {
     const addSubscription = await createSubscription(newSubscription);
-    res.status(200).json({
-      success: true,
-      payload: addSubscription,
-    });
+    res.status(200).json({ success: true, payload: addSubscription });
   } catch (error) {
-    console.log(error.message);
-    res.status(500).json({
-      success: false,
-      message: 'Subscription cannot be added',
-    });
+    sendDbError(res, error, 'Subscription cannot be added');
   }
 });
 
-//INDEX SUBSCRIPTION
-subscription.get('/', async (req, res) => {
-  console.log(req.body);
+// Every subscriber's email: admins only
+subscription.get('/', authenticate, authorize('admin'), async (req, res) => {
   try {
-    const allSubscriptions = await getAllSubscriptions();
-
-    res.status(200).json({ success: true, payload: allSubscriptions });
+    res.status(200).json({ success: true, payload: await getAllSubscriptions() });
   } catch (error) {
-    res.status(404).json({ sucess: false, message: 'no Subscriptions found' });
+    sendDbError(res, error, 'Could not load subscriptions');
   }
 });
-//get a subscription
-subscription.get('/subscribe/:email', async (req, res) => {
-  const { email } = req.params;
+
+// Get a subscription by email
+subscription.get('/subscribe/:email', authenticate, async (req, res) => {
   try {
-    const subscriptionFound = await getASubscription(email);
+    const subscriptionFound = await getASubscription(req.params.email);
+    if (!subscriptionFound) {
+      return res.status(404).json({ success: false, message: 'Cannot find the subscription with the given email' });
+    }
     res.status(200).json({ success: true, payload: subscriptionFound });
   } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: 'Cannot find the subscription with the given email',
-    });
+    sendDbError(res, error, 'Could not load subscription');
   }
 });
 
-//PUT /subscriptions
-
-subscription.put('/update/:updatedEmail', async (req, res) => {
+// Update the subscription whose current email is :updatedEmail
+// Body: { email?, fullname?, is_verified? } (fields left out keep their values)
+subscription.put('/update/:updatedEmail', authenticate, async (req, res) => {
   try {
-    const { subscriptionId } = req.params;
-
-    // Check if the new email is provided
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'New email address is required.',
-      });
+    const updatedSubscription = await updateSubscription(req.body, req.params.updatedEmail);
+    if (!updatedSubscription) {
+      return res.status(404).json({ success: false, message: 'Cannot find the subscription with the given email' });
     }
-
-    // Update the subscription email address
-    const updatedSubscription = await updateSubscription(
-      req.body,
-      subscriptionId
-    );
-
-    res.status(200).json({
-      success: true,
-      payload: updatedSubscription,
-    });
+    res.status(200).json({ success: true, payload: updatedSubscription });
   } catch (error) {
-    console.error(error.message);
-    res.status(500).json({
-      success: false,
-      message: 'Subscription email update failed',
-    });
+    sendDbError(res, error, 'Subscription email update failed');
   }
 });
 
-//DELETE Subscription
+// Unsubscribe: public, so the link in an email works without logging in
 subscription.delete('/unsubscribe/:email', async (req, res) => {
   try {
-    const { email } = req.params;
-    const deletedSubscription = await deleteSubscription(email);
+    const deletedSubscription = await deleteSubscription(req.params.email);
+    if (!deletedSubscription) {
+      return res.status(404).json({ success: false, message: 'Cannot find the subscription with the given email' });
+    }
     res.status(200).json({ success: true, payload: deletedSubscription });
   } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: 'Sorry ! Subscription could not be cancelled at this moment',
-    });
+    sendDbError(res, error, 'Sorry! Subscription could not be cancelled at this moment');
   }
 });
 

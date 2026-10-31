@@ -7,6 +7,7 @@ const MIGRATION_FILES = [
   'legacy_tables.sql',
   'logs_pagination_index.sql',
   'google_login.sql',
+  'subscriptions.sql',
 ];
 
 async function runMigrations() {

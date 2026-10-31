@@ -3,12 +3,11 @@ const express = require('express');
 //access to being able to things like get or set, update or delete
 const books = express.Router();
 
-const db = require('../db/dbConfig');
-
 const { getPagination, buildMeta } = require('../utils/pagination');
- 
+const { sendDbError } = require('../utils/dbErrors');
+
 const {
-  getBooksPage, 
+  getBooksPage,
   getAllBooks,
   getABook,
   createBook,
@@ -20,82 +19,66 @@ const { checkPicture } = require('../validations/checkBooks');
 
 const logController = require('./logController.js');
 books.use('/:bookId/logs', logController);
+const { authenticate, authorize } = require('../middleware/auth');
 
-//Index
+// Index (public)
 books.get('/', async (req, res) => {
-    try {
-      const allBooks = await getAllBooks();
-      res.status(200).json({ success: true, payload: allBooks });
-      if (!req.query.page) return res.json({ success: true, payload: await getAllBooks() });
+  try {
+    if (!req.query.page) return res.json({ success: true, payload: await getAllBooks() });
 
-      const { page, limit, offset } = getPagination(req.query, 12);
-      const { books: rows, total } = await getBooksPage({
-        q: (req.query.q || '').trim(), readingLevel: req.query.level,
-        limit,
-        offset,
-      });
-   res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
-    } catch (error) {
-     res.status(404).json({ sucess: false, message: 'no Books found' });
-    }
+    const { page, limit, offset } = getPagination(req.query, 12);
+    const { books: rows, total } = await getBooksPage({
+      q: (req.query.q || '').trim(),
+      readingLevel: req.query.level,
+      limit,
+      offset,
+    });
+    res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
+  } catch (error) {
+    sendDbError(res, error, 'Could not load books');
+  }
 });
 
-// //Show
+// Show (public)
 books.get('/:bookId', async (req, res) => {
-  console.log('get one /:id');
-  const { bookId } = req.params;
   try {
-    const bookFound = await getABook(bookId);
+    const bookFound = await getABook(req.params.bookId);
+    if (!bookFound) return res.status(404).json({ success: false, message: 'Book not found' });
     res.status(200).json({ success: true, payload: bookFound });
   } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: 'Cannot find the book with the given id',
-    });
+    sendDbError(res, error, 'Could not load the book');
   }
 });
 
-// //CREATE
-books.post('/new', checkPicture, async (req, res) => {
-  const newBook = req.body;
+// Create: any logged-in user
+books.post('/new', authenticate, checkPicture, async (req, res) => {
   try {
-    const addBook = await createBook(newBook);
-    res.status(200).json({
-      success: true,
-      payload: addBook[0],
-    });
+    const addBook = await createBook(req.body);
+    res.status(200).json({ success: true, payload: addBook });
   } catch (error) {
-    // console.log('Caught in error');
-    console.log(error.message);
-    res.status(404).json({ success: false, message: 'Book cannot be added' });
+    sendDbError(res, error, 'Book cannot be added');
   }
 });
 
-// //update
-books.put('/:bookId', async (req, res) => {
-  console.log('Put /:bookId');
-  const { bookId } = req.params;
-
+// Update: teachers and admins
+books.put('/:bookId', authenticate, authorize('teacher', 'admin'), async (req, res) => {
   try {
-    const updatedBook = await updateBook(req.body, bookId);
+    const updatedBook = await updateBook(req.body, req.params.bookId);
+    if (!updatedBook) return res.status(404).json({ success: false, message: 'Book not found' });
     res.status(200).json({ success: true, payload: updatedBook });
   } catch (error) {
-    //console.log(error);
-    res
-      .status(404)
-      .json({ success: false, message: 'Book info cannot be updated' });
+    sendDbError(res, error, 'Book info cannot be updated');
   }
 });
 
-// //DELETE
-books.delete('/:bookId', async (req, res) => {
-  console.log('Delete /:bookId', req.body, req.params);
-  const { bookId } = req.params;
+// Delete: teachers and admins
+books.delete('/:bookId', authenticate, authorize('teacher', 'admin'), async (req, res) => {
   try {
-    const deletedBook = await deleteBook(bookId);
+    const deletedBook = await deleteBook(req.params.bookId);
+    if (!deletedBook) return res.status(404).json({ success: false, message: 'Book not found' });
     res.status(200).json({ success: true, payload: deletedBook });
   } catch (error) {
-    res.status(404).json({ success: false, message: 'Book not found' });
+    sendDbError(res, error, 'Book cannot be deleted');
   }
 });
 

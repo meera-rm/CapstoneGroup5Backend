@@ -1,49 +1,26 @@
 const db = require('../db/dbConfig');
 
-// display all words not sure if we need this route but here it is anyway
+// Query functions never send responses (there is no `res` here).
+// They return data, return null when nothing matches, or throw on a database error.
 
-const allWords = async () => {
-  try {
-    return await db.any('SELECT * FROM personal_dictionary');
-  } catch (error) {
-    return error;
-  }
-};
+// Get all: a list
+const allWords = () => db.any('SELECT * FROM personal_dictionary ORDER BY dictionary_id');
 
-// get one word
-const getAWord = async (word) => {
-  try {
-    const dictionary = await db.one(
-      'SELECT * FROM personal_dictionary WHERE word=$1',
-      word
-    );
-    return dictionary;
-  } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: `Cannot find the subscription with the given id"`,
-    });
-    // return error;
-  }
-};
+// Get one: the first entry for this word, or null
+// (the same word can be saved by several users, so LIMIT 1 keeps oneOrNone from failing)
+const getAWord = (word) =>
+  db.oneOrNone(
+    'SELECT * FROM personal_dictionary WHERE word=$1 ORDER BY dictionary_id LIMIT 1',
+    word
+  );
 
-// delete a word
-const deleteWord = async (dicitonaryId) => {
-  try {
-    return await db.one(
-      'DELETE FROM personal_dictionary WHERE dictionary_id=$1 RETURNING *',
-      dicitonaryId
-    );
-  } catch (error) {
-    return error;
-  }
-};
+// Delete: the deleted word, or null
+const deleteWord = (dictionaryId) =>
+  db.oneOrNone('DELETE FROM personal_dictionary WHERE dictionary_id=$1 RETURNING *', dictionaryId);
 
-// creating new word
-
-const createWord = async (wordDict) => {
-  console.log('wordDict',wordDict);
-  let {
+// Create: always exactly one new row
+const createWord = (wordDict) => {
+  const {
     word,
     grade,
     partsofSpeech,
@@ -55,33 +32,16 @@ const createWord = async (wordDict) => {
     users_id,
   } = wordDict;
 
-  try {
-    const newWord = await db.one(
-      'INSERT INTO personal_dictionary(word, grade,partsofSpeech, phonetic,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 , $9) RETURNING *',
-      [
-        word,
-        grade,
-        partsofSpeech,
-        phonetic,
-        definitions,
-        example,
-        synonyms,
-        antonyms,
-        users_id,
-      ]
-    );
-   console.log(newWord)
-    return newWord;
-  } catch (error) {
-    console.log(error.message || error);
-    return error;
-  }
+  return db.one(
+    'INSERT INTO personal_dictionary (word, grade, partsofSpeech, phonetic, definitions, example, synonyms, antonyms, users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+    [word, grade, partsofSpeech, phonetic, definitions, example, synonyms, antonyms, users_id]
+  );
 };
 
-//check if word exists in the dictionary
-const checkWord = async (words) => {
-  console.log('worddict', words);
-  let {
+// Insert the word only if this user hasn't saved it yet.
+// Returns the new row, or null if it already exists.
+const checkWord = (words) => {
+  const {
     word,
     grade,
     partsofSpeech,
@@ -93,39 +53,22 @@ const checkWord = async (words) => {
     users_id,
   } = words;
 
-  try {
-    const insertWord = await db.one(
-      `INSERT INTO personal_dictionary
-         (word, grade, partsofSpeech,phonetic, definitions, example, synonyms, antonyms, users_id)
-         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
-         WHERE NOT EXISTS (
-           SELECT dictionary_id FROM personal_dictionary
-           WHERE word = $1 AND users_id = $2
-         )
-         RETURNING *`,
-      // 'INSERT INTO personal_dictionary(word, grade,partsofSpeech,definitions,example, synonyms,antonyms,users_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8 ) RETURNING *',
-      [
-        word,
-        grade,
-        partsofSpeech,
-        phonetic,
-        definitions,
-        example,
-        synonyms,
-        antonyms,
-        users_id,
-      ]
-    );
-    return insertWord;
-  } catch (error) {
-    console.error('Error:', error.message);
-    throw error;
-  }
+  return db.oneOrNone(
+    `INSERT INTO personal_dictionary
+       (word, grade, partsofSpeech, phonetic, definitions, example, synonyms, antonyms, users_id)
+     SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
+     WHERE NOT EXISTS (
+       SELECT dictionary_id FROM personal_dictionary
+       WHERE word = $1 AND users_id = $9
+     )
+     RETURNING *`,
+    [word, grade, partsofSpeech, phonetic, definitions, example, synonyms, antonyms, users_id]
+  );
 };
 
-// update/edit teacher acct
-const updateWord = async (dictionary, dicitonaryId) => {
-  let {
+// Update: the updated word, or null
+const updateWord = (dictionary, dictionaryId) => {
+  const {
     word,
     grade,
     partsofSpeech,
@@ -137,26 +80,10 @@ const updateWord = async (dictionary, dicitonaryId) => {
     users_id,
   } = dictionary;
 
-  try {
-    return await db.one(
-      'UPDATE personal_dictionary SET word = $1, grade=$2, partsofSpeech = $3, phonetic = $4 , definitions = $5, example = $6, synonyms = $7,antonyms = $8, users_id = $9 where dictionary_id = $10 RETURNING *',
-      [
-        word,
-        grade,
-        partsofSpeech,
-        phonetic,
-        definitions,
-        example,
-        synonyms,
-        antonyms,
-        users_id,
-        dicitonaryId,
-      ]
-    );
-  } catch (error) {
-    console.log(error.message || error);
-    return error;
-  }
+  return db.oneOrNone(
+    'UPDATE personal_dictionary SET word=$1, grade=$2, partsofSpeech=$3, phonetic=$4, definitions=$5, example=$6, synonyms=$7, antonyms=$8, users_id=$9 WHERE dictionary_id=$10 RETURNING *',
+    [word, grade, partsofSpeech, phonetic, definitions, example, synonyms, antonyms, users_id, dictionaryId]
+  );
 };
 
 module.exports = {

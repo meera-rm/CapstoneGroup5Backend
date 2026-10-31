@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS teachers (
   teacher_avatar TEXT,
   teacher_email VARCHAR(255),
   teacher_bio TEXT,
-  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -61,6 +61,6 @@ CREATE TABLE IF NOT EXISTS students (
   student_avatar TEXT,
   student_image TEXT,
   teachers_id INTEGER REFERENCES teachers(teacher_id) ON UPDATE CASCADE ON DELETE CASCADE,
-  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );

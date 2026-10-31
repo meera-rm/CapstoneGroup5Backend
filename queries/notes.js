@@ -1,85 +1,35 @@
 const db = require('../db/dbConfig.js');
 
-const getAllNotes = async () => {
-  try {
-    const allNotes = await db.any('SELECT * FROM notes');
-    return allNotes;
-  } catch (error) {
-    return error;
-  }
+// Query functions never send responses (there is no `res` here).
+// They return data, return null when nothing matches, or throw on a database error.
+
+// Get all: a list
+const getAllNotes = () => db.any('SELECT * FROM notes ORDER BY note_id');
+
+// Get one: the note, or null
+const getANote = (noteId) => db.oneOrNone('SELECT * FROM notes WHERE note_id=$1', noteId);
+
+// Create: always exactly one new row
+const createNote = (note) => {
+  const { note_title, textnotes, users_id } = note;
+  return db.one(
+    'INSERT INTO notes (note_title, textnotes, users_id) VALUES ($1, $2, $3) RETURNING *',
+    [note_title, textnotes, users_id]
+  );
 };
 
-const getANote = async (noteId) => {
-  try {
-    const note = await db.one('SELECT * FROM notes WHERE note_id=$1', noteId);
-    return note;
-  } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: `Cannot find the note with the given id"`,
-    });
-    // return error;
-  }
+// Update: the updated note, or null
+const updateNote = (note, noteId) => {
+  const { note_title, textnotes, users_id } = note;
+  return db.oneOrNone(
+    'UPDATE notes SET note_title=$1, textnotes=$2, users_id=$3 WHERE note_id=$4 RETURNING *',
+    [note_title, textnotes, users_id, noteId]
+  );
 };
 
-const createNote = async (note) => {
-  console.log('in createnote',note)
-  let {
-    note_title,
-    textnotes,
-    users_id
-  } = note;
-
-  try {
-    return await db.any(
-      'INSERT INTO notes (note_title , textnotes,users_id) VALUES ($1, $2, $3) RETURNING *',
-      [
-        note_title,
-        textnotes,
-        users_id
-      ]
-    );
-  } catch (error) {
-    console.log(error.message);
-    // throw new Error(error.message);
-    res.status(404).json({ success: false, message: 'Note cannot be added' });
-  }
-};
-
-const updateNote = async (note, noteId) => {
-  let {
-    note_title,
-    textnotes,
-    users_id
-  } = note;
-  try {
-    return await db.one(
-      'UPDATE notes SET note_title=$1, textnotes=$2, users_id=$3  where note_id=$4 RETURNING *',
-      [
-        note_title,
-        textnotes,
-        users_id,
-        noteId,
-      ]
-    );
-  } catch (error) {
-    res
-      .status(404)
-      .json({ success: false, message: 'Book Info cannot be edited' });
-  }
-};
-
-const deleteNote = async (noteId) => {
-  try {
-    return await db.one(
-      'DELETE FROM notes WHERE note_id=$1 RETURNING *',
-      noteId
-    );
-  } catch (error) {
-    console.log(error.message || error);
-    return error;
-  }
-};
+// Delete: the deleted note, or null
+const deleteNote = (noteId) =>
+  db.oneOrNone('DELETE FROM notes WHERE note_id=$1 RETURNING *', noteId);
 
 module.exports = {
   getAllNotes,

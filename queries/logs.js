@@ -1,50 +1,31 @@
 const db = require('../db/dbConfig.js');
 
+// Query functions never send responses (there is no `res` here).
+// They return data, return null when nothing matches, or throw on a database error.
+
 const getLogsPage = async (studentId, limit, offset) => {
-
+  const where = studentId ? 'WHERE students_id = $/studentId/' : '';
+  const params = { studentId, limit, offset };
   const logs = await db.any(
-    'SELECT * FROM logs WHERE students_id = $1 ORDER BY log_id DESC LIMIT $2 OFFSET $3',
-    [studentId, limit, offset]
+    `SELECT * FROM logs ${where} ORDER BY log_id DESC LIMIT $/limit/ OFFSET $/offset/`,
+    params
   );
-
-  const { total } = await db.one(
-    'SELECT COUNT(*)::int AS total FROM logs WHERE students_id = $1',
-    [studentId]
-  );
- 
+  const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM logs ${where}`, params);
   return { logs, total };
 };
 
-const getAllLogs = async (studentId) => {
+// Get all: a list (all logs, or one student's logs)
+const getAllLogs = (studentId) =>
+  studentId
+    ? db.any('SELECT * FROM logs WHERE students_id=$1 ORDER BY log_id', studentId)
+    : db.any('SELECT * FROM logs ORDER BY log_id');
 
-  let allLogs;
-  try {
-    if (!studentId) {
-      allLogs = await db.any('SELECT * FROM logs');
-    } else {
-      allLogs = await db.any(
-        'SELECT * FROM logs where students_id=$1',
-        studentId
-      );
-    }
+// Get one: the log, or null
+const getALog = (id) => db.oneOrNone('SELECT * FROM logs WHERE log_id=$1', id);
 
-    return allLogs;
-  } catch (error) {
-    return error;
-  }
-};
-
-const getALog = async (id) => {
-  try {
-    const oneLog = await db.one('SELECT * FROM logs WHERE log_id=$1', id);
-    return oneLog;
-  } catch (error) {
-    return error;
-  }
-};
-
-const createLog = async (log) => {
-  let {
+// Create: always exactly one new row
+const createLog = (log) => {
+  const {
     reading_inference,
     book_title,
     reading_minutes,
@@ -53,39 +34,18 @@ const createLog = async (log) => {
     students_id,
   } = log;
 
-  try {
-    const newLog = await db.one(
-      'INSERT INTO logs ( reading_inference,book_title,reading_minutes,pages_read,books_id,students_id ) VALUES($1, $2, $3, $4, $5, $6) RETURNING *',
-      [
-        reading_inference,
-        book_title,
-        reading_minutes,
-        pages_read,
-        books_id,
-        students_id,
-      ]
-    );
-    console.log('newlog', newLog);
-    return newLog;
-  } catch (error) {
-    return error;
-  }
+  return db.one(
+    'INSERT INTO logs (reading_inference, book_title, reading_minutes, pages_read, books_id, students_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+    [reading_inference, book_title, reading_minutes, pages_read, books_id, students_id]
+  );
 };
 
-const deleteLog = async (id) => {
-  try {
-    const deletedLog = await db.one(
-      'DELETE FROM logs WHERE log_id = $1 RETURNING *',
-      id
-    );
-    return deletedLog;
-  } catch (error) {
-    return error;
-  }
-};
+// Delete: the deleted log, or null
+const deleteLog = (id) => db.oneOrNone('DELETE FROM logs WHERE log_id = $1 RETURNING *', id);
 
-const updateLog = async (log, logId) => {
-  let {
+// Update: the updated log, or null
+const updateLog = (log, logId) => {
+  const {
     reading_inference,
     book_title,
     reading_minutes,
@@ -93,23 +53,11 @@ const updateLog = async (log, logId) => {
     books_id,
     students_id,
   } = log;
-  try {
-    const updatedLog = await db.one(
-      'UPDATE logs SET reading_inference=$1,book_title=$2,reading_minutes=$3,pages_read=$4,books_id=$5,students_id=$6 where log_id=$7 RETURNING *',
-      [
-        reading_inference,
-        book_title,
-        reading_minutes,
-        pages_read,
-        books_id,
-        students_id,
-        logId,
-      ]
-    );
-    return updatedLog;
-  } catch (error) {
-    return error;
-  }
+
+  return db.oneOrNone(
+    'UPDATE logs SET reading_inference=$1, book_title=$2, reading_minutes=$3, pages_read=$4, books_id=$5, students_id=$6 WHERE log_id=$7 RETURNING *',
+    [reading_inference, book_title, reading_minutes, pages_read, books_id, students_id, logId]
+  );
 };
 
 module.exports = {

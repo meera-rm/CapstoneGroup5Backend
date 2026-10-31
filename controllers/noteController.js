@@ -3,8 +3,11 @@ const express = require('express');
 //access to being able to things like get or set, update or delete
 const notes = express.Router();
 
-const db = require('../db/dbConfig');
+const { authenticate } = require('../middleware/auth');
+const { sendDbError } = require('../utils/dbErrors');
 const userController = require('./userController');
+
+notes.use(authenticate); // every notes route needs a token
 notes.use('/:userId/notes', userController);
 
 const {
@@ -15,76 +18,57 @@ const {
   deleteNote,
 } = require('../queries/notes');
 
-
-//Index
+// Index
 notes.get('/', async (req, res) => {
-
   try {
-    const allNotes = await getAllNotes();
-    res.status(200).json({ success: true, payload: allNotes });
+    res.status(200).json({ success: true, payload: await getAllNotes() });
   } catch (error) {
-    res.status(404).json({ sucess: false, message: 'no Notes found' });
+    sendDbError(res, error, 'Could not load notes');
   }
 });
 
-// //Show
+// Show
 notes.get('/:noteId', async (req, res) => {
-  console.log('get one /:id');
-  const { noteId } = req.params;
   try {
-    const noteFound = await getANote(noteId);
+    const noteFound = await getANote(req.params.noteId);
+    if (!noteFound) {
+      return res.status(404).json({ success: false, message: 'Cannot find the note with the given id' });
+    }
     res.status(200).json({ success: true, payload: noteFound });
   } catch (error) {
-    res.status(404).json({
-      success: false,
-      message: 'Cannot find the notes with the given id',
-    });
+    sendDbError(res, error, 'Could not load note');
   }
 });
 
-// //CREATE
-notes.post('/new',  async (req, res) => {
-  const newNote= req.body;
-  console.log('newnote in controller',newNote)
+// Create
+notes.post('/new', async (req, res) => {
   try {
-    const addNote = await createNote(newNote);
-    res.status(200).json({
-      success: true,
-      payload: addNote[0]
-    });
-    console.log(res.payload)
+    const addNote = await createNote(req.body);
+    res.status(200).json({ success: true, payload: addNote });
   } catch (error) {
-    // console.log('Caught in error');
-    console.log(error.message);
-    res.status(404).json({ success: false, message: 'Note cannot be added' });
+    sendDbError(res, error, 'Note cannot be added');
   }
 });
 
-// //update
+// Update
 notes.put('/:noteId', async (req, res) => {
-  console.log('Put /:noteId',req.body);
-  const { noteId } = req.params;
-
   try {
-    const updatedNote = await updateNote(req.body, noteId);
+    const updatedNote = await updateNote(req.body, req.params.noteId);
+    if (!updatedNote) return res.status(404).json({ success: false, message: 'Note not found' });
     res.status(200).json({ success: true, payload: updatedNote });
   } catch (error) {
-    //console.log(error);
-    res
-      .status(404)
-      .json({ success: false, message: 'note info cannot be updated' });
+    sendDbError(res, error, 'Note cannot be updated');
   }
 });
 
-// //DELETE
+// Delete
 notes.delete('/:noteId', async (req, res) => {
-  console.log('Delete /:noteId', req.body, req.params);
-  const { noteId } = req.params;
   try {
-    const deletedNote = await deleteNote(noteId);
-    res.status(200).json({ success: true, payload: deletedNote});
+    const deletedNote = await deleteNote(req.params.noteId);
+    if (!deletedNote) return res.status(404).json({ success: false, message: 'Note not found' });
+    res.status(200).json({ success: true, payload: deletedNote });
   } catch (error) {
-    res.status(404).json({ success: false, message: 'Note not found' });
+    sendDbError(res, error, 'Note cannot be deleted');
   }
 });
 
