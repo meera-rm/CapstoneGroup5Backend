@@ -1,0 +1,2570 @@
+openapi: '3.0.3'
+info:
+  title: ScholarSheep
+  version: 2.0.0
+  description: >-
+    REST API for ScholarSheep, a reading-log app for elementary classrooms. Students log the books they read (minutes, pages and what they learned), teachers follow their students’ progress and comment on their logs, and every user can keep notes and a personal dictionary of new words.
+    Authentication: sign in with email and password or with Google at /api/auth. Both return a JWT access token. Click Authorize and paste the token to try protected routes.
+
+    Access: the book catalog, health check, subscribe and unsubscribe are public. Everything else needs a login, and some actions depend on your role (student, parent, teacher or admin). For example, any logged-in user can add a book, but only teachers and admins can edit or delete one.
+
+    Login: register and Google sign-in allow 10 attempts per 15 minutes per IP. Lists accept ?page= and ?limit= (max 50).
+servers:
+  - url: http://localhost:3010
+    description: Local
+  - url: https://capstone-group5-backend.vercel.app/
+    description: Production
+components: 
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Book not found
+
+    AuthError:
+      type: object
+      description: Error shape used by login, register and the auth middleware
+      properties:
+        error:
+          type: string
+          example: Not logged in
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Send as `Authorization Bearer <accessToken>` (valid 1 day)
+        refreshToken:
+          type: string
+          description: Valid 7 days
+        user:
+          $ref: '#/components/schemas/User'
+
+    Book:
+      type: object
+      required:
+        - book_title
+        - book_author
+      properties:
+        book_id:
+          type: integer
+          readOnly: true
+          example: 5
+        book_title:
+          type: string
+          example: Matilda
+        book_author:
+          type: string
+          example: Roald Dahl
+        isbn_number:
+          type: string
+          example: '9780142410370'
+        publication:
+          type: string
+          example: Puffin Books
+        book_picture:
+          type: string
+          example: https://covers.openlibrary.org/b/isbn/9780142410370-M.jpg
+        grade:
+          type: string
+          example: '3'
+        reading_level:
+          type: string
+          example: S
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 5
+        total:
+          type: integer
+          example: 20
+        totalPages:
+          type: integer
+          example: 25
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+
+    Teacher:
+      type: object
+      required:
+        - teacher_name
+      properties:
+        teacher_id:
+          type: integer
+          readOnly: true
+          example: 1
+        teacher_name:
+          type: string
+          example: Ms. Fundy
+        school_name:
+          type: string
+          example: P.S. 152
+        school_district:
+          type: integer
+          example: 2
+        school_address:
+          type: string
+          example: 725 East 23rd St
+        zipcode:
+          type: integer
+          example: 11210
+        state_name:
+          type: string
+          example: NY
+        class_subject:
+          type: string
+          example: Reading
+        teaching_grade:
+          type: string
+          example: '1'
+        teacher_avatar:
+          type: string
+          example: https://api.dicebear.com/5.x/personas/svg?seed=Sophie
+        teacher_email:
+          type: string
+          format: email
+          example: fundy@school.org
+        teacher_bio:
+          type: string
+          example: First-grade reading teacher.
+        user_id:
+          type: integer
+          nullable: true
+          description: Linked user account, if any
+          example: 12
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Student:
+      type: object
+      required:
+        - student_name
+      properties:
+        student_id:
+          type: integer
+          readOnly: true
+          example: 1
+        student_name:
+          type: string
+          example: Celia Edward
+        parent_name:
+          type: string
+          example: Thomas Edward
+        parent_email:
+          type: string
+          format: email
+          example: thomas@gmail.com
+        student_email:
+          type: string
+          format: email
+          example: celia_edward@nycschools.org
+        grade:
+          type: string
+          example: '1'
+        academic_year:
+          type: string
+          example: 2025-2026
+        reading_level:
+          type: string
+          example: G
+        student_avatar:
+          type: string
+          example: https://api.dicebear.com/5.x/pixel-art/svg?seed=Zoey
+        student_image:
+          type: string
+        teachers_id:
+          type: integer
+          description: The teacher this student belongs to
+          example: 1
+        user_id:
+          type: integer
+          nullable: true
+          description: Linked user account, if any
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Log:
+      type: object
+      properties:
+        log_id:
+          type: integer
+          readOnly: true
+          example: 1
+        date_read:
+          type: string
+          format: date-time
+          readOnly: true
+        reading_inference:
+          type: string
+          example: Matilda learned that being kind is a kind of strength.
+        book_title:
+          type: string
+          example: Matilda
+        reading_minutes:
+          type: integer
+          default: 0
+          example: 20
+        pages_read:
+          type: integer
+          default: 0
+          example: 15
+        books_id:
+          type: integer
+          description: The book that was read
+          example: 5
+        students_id:
+          type: integer
+          description: The student who read it
+          example: 1
+
+    Comment:
+      type: object
+      required:
+        - teacher_comments
+      properties:
+        comment_id:
+          type: integer
+          readOnly: true
+          example: 1
+        teacher_comments:
+          type: string
+          example: Great summary, Celia!
+        logs_id:
+          type: integer
+          description: The reading log this comment is on
+          example: 1
+        teachers_id:
+          type: integer
+          description: The teacher who wrote it
+          example: 1
+
+    Note:
+      type: object
+      properties:
+        note_id:
+          type: integer
+          readOnly: true
+          example: 1
+        note_title:
+          type: string
+          example: Words to practice
+        textnotes:
+          type: string
+          example: Review "enormous" and "habitat" before Friday.
+        users_id:
+          type: integer
+          description: The user who owns the note
+          example: 3
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Word:
+      type: object
+      required:
+        - word
+      properties:
+        dictionary_id:
+          type: integer
+          readOnly: true
+          example: 1
+        word:
+          type: string
+          example: brave
+        grade:
+          type: string
+          example: '1'
+        partsofspeech:
+          type: string
+          description: >
+            Send it as `partsofSpeech` in POST/PUT bodies; responses return it
+            lowercase as `partsofspeech`.
+          example: adjective
+        phonetic:
+          type: string
+          example: /brāv/
+        definitions:
+          type: string
+          example: ready to face danger or pain; showing courage
+        example:
+          type: string
+          example: The brave girl rescued the kitten from the tree.
+        synonyms:
+          type: array
+          items:
+            type: string
+          example: [courageous, bold, fearless]
+        antonyms:
+          type: array
+          items:
+            type: string
+          example: [cowardly, timid]
+        users_id:
+          type: integer
+          description: The user who saved the word
+          example: 3
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Subscription:
+      type: object
+      required:
+        - fullname
+        - email
+      properties:
+        subscription_id:
+          type: integer
+          readOnly: true
+          example: 1
+        fullname:
+          type: string
+          description: >
+            Send it as `fullName` when subscribing (POST); responses return it
+            lowercase as `fullname`.
+          example: Thomas Edward
+        email:
+          type: string
+          format: email
+          example: thomas@gmail.com
+        is_subscribed:
+          type: boolean
+          example: false
+        is_verified:
+          type: boolean
+          example: false
+        subscribed_on:
+          type: string
+          format: date-time
+          readOnly: true
+
+    User:
+      type: object
+      description: A user as returned by the API. Passwords are never returned.
+      properties:
+        user_id:
+          type: integer
+          readOnly: true
+          example: 3
+        user_name:
+          type: string
+          example: Test Student
+        user_email:
+          type: string
+          format: email
+          example: student1@test.com
+        user_role:
+          type: string
+          enum: [student, parent, teacher, admin]
+          example: student
+        user_avatar:
+          type: string
+          example: https://api.dicebear.com/5.x/pixel-art/svg?seed=Zoey
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: Page number. Without it, the full list is returned (no pagination).
+      schema:
+        type: integer
+        minimum: 1
+        example: 1
+    Limit:
+      name: limit
+      in: query
+      description: Items per page (max 50)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        example: 10
+ 
+  responses:
+    BadRequest:
+      description: Bad input (missing required field, duplicate value, or invalid id)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Not logged in, or the token is missing, invalid or expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthError'
+    Forbidden:
+      description: Logged in, but your role isn't allowed to do this
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthError'
+    NotFound:
+      description: No record with that id
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Server or database error (details only in the server log)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Too many attempts (10 per 15 minutes per IP)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AuthError'
+
+paths:
+
+  /api/health:
+    get:
+      tags:
+      - Health
+      summary: Check the API and database
+      security: []
+      responses:
+        '200':
+          description: API and database are up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  db:
+                    type: string
+                    example: ok
+        '503':
+          description: Database unreachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  db:
+                    type: string
+                    example: unreachable
+
+  /api/auth/register:
+    post:
+      tags:
+      - Auth
+      summary: Sign up with email and password
+      description: New accounts are always `student`. Only an admin can change a role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - user_name
+              - user_email
+              - user_password
+              properties:
+                user_name:
+                  type: string
+                  example: Test Student
+                user_email:
+                  type: string
+                  format: email
+                  example: student1@test.com
+                user_password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: password123
+                user_avatar:
+                  type: string
+                  example: ''
+      security: []
+      responses:
+        '201':
+          description: Account created; returns tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Missing fields, or password shorter than 8 characters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '409':
+          description: An account with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          description: Could not create account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /api/auth/login:
+    post:
+      tags:
+      - Auth
+      summary: Log in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - user_email
+              - user_password
+              properties:
+                user_email:
+                  type: string
+                  format: email
+                  example: student1@test.com
+                user_password:
+                  type: string
+                  format: password
+                  example: password123
+      security: []
+      responses:
+        '200':
+          description: Logged in; copy `accessToken` and click Authorize
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Email and password are required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '401':
+          description: Wrong email or password, or the account uses Google sign-in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          description: Could not log in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /api/auth/google:
+    post:
+      tags:
+      - Auth
+      summary: Sign in with Google
+      description: Send the ID token (`credential`) from the Google Sign-In button.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - credential
+              properties:
+                credential:
+                  type: string
+                  description: Google ID token
+      security: []
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Missing Google credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '401':
+          description: Google sign-in failed or email not verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /api/auth/me:
+    get:
+      tags:
+      - Auth
+      summary: The current user
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+  /api/users:
+    get:
+      tags:
+      - Users
+      summary: List users
+      description: 'Roles: teacher, admin.'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK; `pagination` only with `?page`
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          description: Could not load users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+
+  /api/users/{id}:
+    get:
+      tags:
+      - Users
+      summary: Get one user
+      description: Yourself, or any user if you are a teacher or admin.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: User id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not your account, and not a teacher or admin
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+    put:
+      tags:
+      - Users
+      summary: Update a user
+      description: Yourself or an admin. Only admins can change `user_role`.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: User id
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_name:
+                  type: string
+                user_email:
+                  type: string
+                  format: email
+                user_avatar:
+                  type: string
+                user_role:
+                  type: string
+                  enum:
+                  - student
+                  - parent
+                  - teacher
+                  - admin
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid id or role
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not your account, or only admins can change roles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+        '409':
+          description: That email is already in use
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+    delete:
+      tags:
+      - Users
+      summary: Delete a user
+      description: 'Roles: admin.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: User id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid id, or you can't delete your own account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+
+  /api/books:
+    get:
+      tags:
+      - Books
+      summary: List books
+      description: Public. `pagination` is included only when `?page` is sent.
+      parameters:
+      - name: q
+        in: query
+        description: Search title or author (only with `?page`)
+        schema:
+          type: string
+      - name: level
+        in: query
+        description: Filter by reading level (only with `?page`)
+        schema:
+          type: string
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/books/new:
+    post:
+      tags:
+      - Books
+      summary: Create a book
+      description: Any logged-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Created; `payload` is the new row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Book'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/books/{bookId}:
+    get:
+      tags:
+      - Books
+      summary: Get one book
+      parameters:
+      - name: bookId
+        in: path
+        required: true
+        description: Book id
+        schema:
+          type: integer
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Book'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Books
+      summary: Update a book
+      description: 'Roles: teacher, admin.'
+      parameters:
+      - name: bookId
+        in: path
+        required: true
+        description: Book id
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Book'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Books
+      summary: Delete a book
+      description: 'Roles: teacher, admin.'
+      parameters:
+      - name: bookId
+        in: path
+        required: true
+        description: Book id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted; `payload` is the deleted row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Book'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/books/{bookId}/logs:
+    get:
+      tags:
+      - Books
+      summary: Reading logs for a book
+      parameters:
+      - name: bookId
+        in: path
+        required: true
+        description: Book id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: A plain array
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Log'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/teachers:
+    get:
+      tags:
+      - Teachers
+      summary: List teachers
+      description: Any logged-in user. `pagination` is included only when `?page` is sent.
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Teacher'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/teachers/new:
+    post:
+      tags:
+      - Teachers
+      summary: Create a teacher
+      description: 'Roles: admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Teacher'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Created; `payload` is the new row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Teacher'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/teachers/{teacherId}:
+    get:
+      tags:
+      - Teachers
+      summary: Get one teacher
+      parameters:
+      - name: teacherId
+        in: path
+        required: true
+        description: Teacher id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Teacher'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Teachers
+      summary: Update a teacher
+      description: 'Roles: admin.'
+      parameters:
+      - name: teacherId
+        in: path
+        required: true
+        description: Teacher id
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Teacher'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Teacher'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Teachers
+      summary: Delete a teacher
+      description: 'Roles: admin.'
+      parameters:
+      - name: teacherId
+        in: path
+        required: true
+        description: Teacher id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted; `payload` is the deleted row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Teacher'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/teachers/{teacherId}/students:
+    get:
+      tags:
+      - Teachers
+      summary: A teacher's students
+      parameters:
+      - name: teacherId
+        in: path
+        required: true
+        description: Teacher id
+        schema:
+          type: integer
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Plain array, or paginated with `?page`
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Student'
+                - type: object
+                  properties:
+                    success:
+                      type: boolean
+                      example: true
+                    payload:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Student'
+                    pagination:
+                      $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/students:
+    get:
+      tags:
+      - Students
+      summary: List students
+      description: 'Any logged-in user. Without `?page`: a plain array. With `?page`: `{ success, payload, pagination
+        }`.'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Student'
+                - type: object
+                  properties:
+                    success:
+                      type: boolean
+                      example: true
+                    payload:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Student'
+                    pagination:
+                      $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/students/new:
+    post:
+      tags:
+      - Students
+      summary: Create a student
+      description: 'Roles: teacher, admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Student'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Created; `payload` is the new row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Student'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/students/{studentId}:
+    get:
+      tags:
+      - Students
+      summary: Get one student
+      parameters:
+      - name: studentId
+        in: path
+        required: true
+        description: Student id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK (the object itself, not wrapped)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Students
+      summary: Update a student
+      description: 'Roles: teacher, admin.'
+      parameters:
+      - name: studentId
+        in: path
+        required: true
+        description: Student id
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Student'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Student'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Students
+      summary: Delete a student
+      description: 'Roles: teacher, admin.'
+      parameters:
+      - name: studentId
+        in: path
+        required: true
+        description: Student id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted; `payload` is the deleted row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Student'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/students/{studentId}/logs:
+    get:
+      tags:
+      - Students
+      summary: A student's reading logs
+      parameters:
+      - name: studentId
+        in: path
+        required: true
+        description: Student id
+        schema:
+          type: integer
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Plain array, or paginated with `?page`
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Log'
+                - type: object
+                  properties:
+                    success:
+                      type: boolean
+                      example: true
+                    payload:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Log'
+                    pagination:
+                      $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/logs:
+    get:
+      tags:
+      - Logs
+      summary: List logs
+      description: 'Any logged-in user. Without `?page`: a plain array. With `?page`: `{ success, payload, pagination
+        }`.'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Log'
+                - type: object
+                  properties:
+                    success:
+                      type: boolean
+                      example: true
+                    payload:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Log'
+                    pagination:
+                      $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/logs/new:
+    post:
+      tags:
+      - Logs
+      summary: Create a log
+      description: 'Roles: student, teacher, admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Log'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Created; `payload` is the new row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Log'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/logs/{logId}:
+    get:
+      tags:
+      - Logs
+      summary: Get one log
+      parameters:
+      - name: logId
+        in: path
+        required: true
+        description: Log id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK (the object itself, not wrapped)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Log'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Logs
+      summary: Update a log
+      description: 'Roles: student, teacher, admin.'
+      parameters:
+      - name: logId
+        in: path
+        required: true
+        description: Log id
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Log'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Log'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Logs
+      summary: Delete a log
+      description: 'Roles: student, teacher, admin.'
+      parameters:
+      - name: logId
+        in: path
+        required: true
+        description: Log id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted; `payload` is the deleted row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Log'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/logs/{logId}/comments:
+    get:
+      tags:
+      - Logs
+      summary: Comments on a log
+      parameters:
+      - name: logId
+        in: path
+        required: true
+        description: Log id
+        schema:
+          type: integer
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/comments:
+    get:
+      tags:
+      - Comments
+      summary: List comments
+      description: Any logged-in user. `pagination` is included only when `?page` is sent.
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/comments/new:
+    post:
+      tags:
+      - Comments
+      summary: Create a comment
+      description: 'Roles: teacher, admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Created; `payload` is the new row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/comments/{commentId}:
+    get:
+      tags:
+      - Comments
+      summary: Get one comment
+      parameters:
+      - name: commentId
+        in: path
+        required: true
+        description: Comment id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Comments
+      summary: Update a comment
+      description: 'Roles: teacher, admin.'
+      parameters:
+      - name: commentId
+        in: path
+        required: true
+        description: Comment id
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Comment'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Comments
+      summary: Delete a comment
+      description: 'Roles: teacher, admin.'
+      parameters:
+      - name: commentId
+        in: path
+        required: true
+        description: Comment id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted; `payload` is the deleted row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/comments/logs/{logId}:
+    get:
+      tags:
+      - Comments
+      summary: The first comment on a log
+      parameters:
+      - name: logId
+        in: path
+        required: true
+        description: Log id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: '`payload` is null if the log has no comment'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  payload:
+                    type: object
+                    nullable: true
+                    allOf:
+                    - $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/notes:
+    get:
+      tags:
+      - Notes
+      summary: List notes
+      description: Any logged-in user. `pagination` is included only when `?page` is sent.
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Note'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/notes/new:
+    post:
+      tags:
+      - Notes
+      summary: Create a note
+      description: Any logged-in user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Note'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Created; `payload` is the new row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Note'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/notes/{noteId}:
+    get:
+      tags:
+      - Notes
+      summary: Get one note
+      parameters:
+      - name: noteId
+        in: path
+        required: true
+        description: Note id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Note'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Notes
+      summary: Update a note
+      description: Any logged-in user.
+      parameters:
+      - name: noteId
+        in: path
+        required: true
+        description: Note id
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Note'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Note'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Notes
+      summary: Delete a note
+      description: Any logged-in user.
+      parameters:
+      - name: noteId
+        in: path
+        required: true
+        description: Note id
+        schema:
+          type: integer
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted; `payload` is the deleted row
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Note'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/dictionary:
+    get:
+      tags:
+      - Dictionary
+      summary: List words
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Word'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags:
+      - Dictionary
+      summary: Add a word
+      description: Any logged-in user. Send `partsofSpeech` (camelCase) in the body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Word'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Word'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/dictionary/{wordOrId}:
+    get:
+      tags:
+      - Dictionary
+      summary: Look up a word
+      parameters:
+      - name: wordOrId
+        in: path
+        required: true
+        description: 'For GET: the word itself (e.g. `brave`). For PUT and DELETE: the `dictionary_id`.'
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: The first saved entry for this word
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Word'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    put:
+      tags:
+      - Dictionary
+      summary: Update a word (by id)
+      parameters:
+      - name: wordOrId
+        in: path
+        required: true
+        description: 'For GET: the word itself (e.g. `brave`). For PUT and DELETE: the `dictionary_id`.'
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Word'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Word'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags:
+      - Dictionary
+      summary: Delete a word (by id)
+      parameters:
+      - name: wordOrId
+        in: path
+        required: true
+        description: 'For GET: the word itself (e.g. `brave`). For PUT and DELETE: the `dictionary_id`.'
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Word'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/subscriptions:
+    post:
+      tags:
+      - Subscriptions
+      summary: Subscribe
+      description: 'Public: no login needed. A duplicate email returns 400.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - fullName
+              - email
+              properties:
+                fullName:
+                  type: string
+                  example: Thomas Edward
+                email:
+                  type: string
+                  format: email
+                  example: thomas@gmail.com
+                is_subscribed:
+                  type: boolean
+                is_verified:
+                  type: boolean
+      security: []
+      responses:
+        '200':
+          description: Subscribed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Subscription'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    get:
+      tags:
+      - Subscriptions
+      summary: List all subscribers
+      description: 'Roles: admin.'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/subscriptions/subscribe/{email}:
+    get:
+      tags:
+      - Subscriptions
+      summary: Get a subscription by email
+      parameters:
+      - name: email
+        in: path
+        required: true
+        description: Subscriber email
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/subscriptions/update/{updatedEmail}:
+    put:
+      tags:
+      - Subscriptions
+      summary: Update a subscription
+      description: Finds the subscription by its **current** email (the path) and applies the body. Fields left
+        out keep their values.
+      parameters:
+      - name: updatedEmail
+        in: path
+        required: true
+        description: The current email
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                fullname:
+                  type: string
+                is_verified:
+                  type: boolean
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Subscription'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/subscriptions/unsubscribe/{email}:
+    delete:
+      tags:
+      - Subscriptions
+      summary: Unsubscribe
+      description: Public, so the link in an email works without logging in.
+      parameters:
+      - name: email
+        in: path
+        required: true
+        description: Subscriber email
+        schema:
+          type: string
+      security: []
+      responses:
+        '200':
+          description: Unsubscribed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  payload:
+                    $ref: '#/components/schemas/Subscription'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'

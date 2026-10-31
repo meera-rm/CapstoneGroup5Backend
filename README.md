@@ -137,7 +137,6 @@ Check it's up:
 ```bash
 curl http://localhost:3010/api/health
 ```
-
 ---
 
 ## API overview
@@ -201,6 +200,104 @@ books.post('/new', authenticate, authorize('teacher', 'admin'), checkPicture, ha
 | 404 | Not found |
 | 409 | Conflict, e.g. the email is already in use |
 | 500 | Server or database error (details only in the server log) |
+
+---
+
+## API documentation (Swagger)
+
+The whole API is described in one file, **`docs/openapi.yaml`**, written in the **OpenAPI 3.0.3** format. **Swagger UI** turns that file into an interactive web page where you can read every endpoint and send real requests with **Try it out**.
+
+- Local: `http://localhost:3010/api-docs`
+- Production: `https://capstone-group5-backend.vercel.app/api-docs`
+
+### Setup
+
+```bash
+npm install swagger-ui-express yaml   # serves the page; parses the YAML file
+npm ls swagger-ui-express yaml        # check both are installed
+```
+
+In `app.js`, the spec is read with `fs` + `path.join(__dirname, 'docs', 'openapi.yaml')`, parsed with `yaml`'s `parse`, and mounted at `/api-docs` with `swagger-ui-express` (`serve` + `setup(spec)`). It must be mounted **above the 404 handler**.
+
+On Vercel, `express.static()` is ignored, so Swagger UI's CSS and JS are loaded from a CDN with the `customCssUrl` and `customJs` options of `setup()`. Without this the page loads blank in production.
+
+### How `docs/openapi.yaml` is organized
+
+The file has five top-level sections, always in this order:
+
+| Section | Purpose | Format |
+|---|---|---|
+| `openapi` | Which version of the OpenAPI format the file uses | One line, quoted: `openapi: '3.0.3'` |
+| `info` | The API's name, version and description shown at the top of the page | Object with `title`, `version` and `description` (Markdown allowed; use `\|` or `>` for multi-line text) |
+| `servers` | Where the API runs; Swagger UI shows them as a dropdown for **Try it out** | List of `- url:` items with an optional `description`. No trailing slash and no `/api` (paths already include it) |
+| `components` | Reusable pieces, defined once and referenced everywhere with `$ref` | Object with four sub-sections (below) |
+| `paths` | Every endpoint: URL, method, inputs and possible responses | One key per URL, then one key per HTTP method |
+
+#### `components`: the reusable parts
+
+| Sub-section | What it holds | Used from `paths` as |
+|---|---|---|
+| `securitySchemes` | `bearerAuth`: JWT Bearer login. Adds the **Authorize** button | `security: - bearerAuth: []` |
+| `schemas` | The shape of each kind of data: `Book`, `Teacher`, `Student`, `Log`, `Comment`, `Note`, `Word`, `Subscription`, `User`, plus `Error`, `AuthError`, `AuthResponse`, `Pagination` | `$ref: '#/components/schemas/Book'` |
+| `parameters` | Query parameters shared by list routes: `Page`, `Limit` | `$ref: '#/components/parameters/Page'` |
+| `responses` | Responses shared by many routes: `BadRequest` (400), `Unauthorized` (401), `Forbidden` (403), `NotFound` (404), `ServerError` (500), `TooManyRequests` (429) | `$ref: '#/components/responses/NotFound'` |
+
+A **schema** lists an object's fields under `properties`, each with a `type` (`integer`, `string`, `boolean`, `array`) and optional `format` (`email`, `date-time`), `example`, `readOnly` (set by the database, e.g. ids) and `nullable`. `required` lists the fields that are `NOT NULL` in the database. Column names come from the migration files.
+
+#### `paths`: one entry per endpoint
+
+```yaml
+  /api/books/{bookId}:            # URL; {bookId} is a path parameter
+    put:                          # HTTP method
+      tags: [Books]               # group on the page
+      summary: Update a book
+      description: 'Roles: teacher, admin.'
+      parameters:                 # path and query inputs
+        - name: bookId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:                # JSON body (POST/PUT)
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Book' }
+      security:                   # needs a token; public routes use `security: []`
+        - bearerAuth: []
+      responses:                  # every status the route can return
+        '200': { description: Updated }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+```
+
+Things specific to this API:
+
+- **Public routes** (health, auth, `GET` books, subscribe, unsubscribe) have `security: []`.
+- **Roles** for each route are written in its `description`.
+- `GET /api/students` and `GET /api/logs` return a plain array without `?page`, and `{ success, payload, pagination }` with it, described with `oneOf`.
+- Dictionary uses `/api/dictionary/{wordOrId}`: the word for `GET`, the `dictionary_id` for `PUT`/`DELETE` (OpenAPI doesn't allow two URLs that differ only by parameter name).
+- Postgres stores unquoted column names in lowercase, so responses return `partsofspeech` and `fullname` even though request bodies send `partsofSpeech` and `fullName`.
+
+### YAML rules to remember
+
+- Indent with **2 spaces, never tabs**. Indentation decides what belongs to what.
+- `key: value` needs a **space after the colon**.
+- List items start with `- `.
+- Quote values that look like numbers but are text (`'3.0.3'`, `'1'`), and `$ref` values (they start with `#`).
+- Don't use YAML anchors/aliases (`&id001` / `*id001`): Swagger Editor doesn't resolve them.
+
+### Adding or changing an endpoint
+
+1. Add or edit the route in `controllers/`.
+2. In `docs/openapi.yaml`, add the path and method under `paths`, reusing schemas, parameters and responses with `$ref`.
+3. If it returns a new kind of data, add a schema under `components/schemas`.
+4. Validate (below), then commit the code and the docs together.
+
+### Validate and try it
+
+- **Validate:** paste `docs/openapi.yaml` into **[Swagger Editor](https://editor.swagger.io/)**. It underlines YAML and OpenAPI errors with the exact line and previews the page. Errors (red) must be fixed; warnings such as "operationId missing" or "declared but never used" are optional.
+- **Try protected routes:** run `POST /api/auth/login`, copy the `accessToken`, click **Authorize**, and paste the token (without the word "Bearer").
 
 ---
 
