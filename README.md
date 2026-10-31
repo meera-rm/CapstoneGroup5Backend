@@ -186,12 +186,36 @@ Successful register, login and Google sign-in all return:
 | `/api/notes` | `noteController.js` | `GET /`, `GET /:noteId`, `POST /new`, `PUT /:noteId`, `DELETE /:noteId` |
 | `/api/subscriptions` | `subscriptionController.js` | `POST /`, `GET /`, `GET /subscribe/:email`, `PUT /update/:updatedEmail`, `DELETE /unsubscribe/:email` |
 
-These routes come from the original version of the app and **don't require a login yet**. To protect one, add the middleware, for example:
+### Who can do what
 
-```js
-const { authenticate, authorize } = require('../middleware/auth');
-books.post('/new', authenticate, authorize('teacher', 'admin'), checkPicture, handler);
-```
+Every route needs `Authorization: Bearer <accessToken>` **except** these public ones:
+
+| Public route | Why |
+|---|---|
+| `GET /api/health` | Monitoring |
+| `GET /api/books`, `GET /api/books/:bookId` | The book catalog is public |
+| `POST /api/subscriptions` | Visitors can subscribe without an account |
+| `DELETE /api/subscriptions/unsubscribe/:email` | The unsubscribe link in an email works without logging in |
+| `POST /api/auth/register`, `/login`, `/google` | Getting a token (rate-limited: 10 attempts per 15 minutes per IP) |
+| `GET /api-docs` | API documentation |
+
+For logged-in users, writes depend on the role or on ownership:
+
+| Resource | Read | Create | Edit / delete |
+|---|---|---|---|
+| Books | public | any logged-in user | teacher, admin |
+| Teachers | logged in | admin | admin |
+| Students | logged in | teacher, admin | teacher, admin |
+| Logs | logged in | student, teacher, admin | student, teacher, admin |
+| Comments | logged in | teacher, admin | teacher, admin |
+| Notes | logged in | any logged-in user (saved to their account) | **owner or admin only** |
+| Dictionary words | logged in | any logged-in user (saved to their account) | **owner or admin only** |
+| Subscriptions | list: admin only | public | edit: logged in · unsubscribe: public |
+| Users | teacher, admin (self for one user) | via `/api/auth/register` | self or admin · delete: admin only |
+
+- **Middleware:** `authenticate` (`middleware/auth.js`) checks the token, `authorize(...roles)` checks the role, and `canModify` (`utils/ownership.js`) checks that a note or word belongs to the user.
+- **Order matters:** `router.use(authenticate)` only protects routes defined below it, so it goes before nested routes such as `/:studentId/logs`.
+- **Ownership:** when creating notes and words, `users_id` comes from the token, not the request body, and editing can't change the owner. Seeded words with no owner can only be changed by an admin.
 
 ### Status codes
 
@@ -319,9 +343,15 @@ Things specific to this API:
 ├── utils/
 │   ├── jwt-helpers.js     # Create and verify access/refresh tokens
 │   ├── pagination.js      # ?page & ?limit → offset + metadata
+│   ├── dbErrors.js        # sendDbError: database error → 400 or 500 response
+│   ├── ownership.js       # canModify: owner or admin check for notes and words
 │   └── roles.js           # The list of roles
 ├── validations/           # Request validators (e.g. checkBooks.js)
-├── migrations/            # SQL migrations + migrations.js runner
+├── migrations/            # SQL migrations + migrations.js runner (safe to re-run)
+├── docs/
+│   ├── openapi.yaml       # OpenAPI 3.0.3 spec, served as Swagger UI at /api-docs
+│   ├── APICURL.md         # curl examples for auth and users
+│   └── STAGING.md         # Plan for a staging environment (not set up yet)
 └── db/
     ├── dbConfig.js        # pg-promise connection (SSL for RDS)
     ├── schema.sql         # Local schema (npm run db:init)
@@ -493,5 +523,5 @@ git config --global core.excludesfile ~/.gitignore_global
 
 - [ ] Staging environment (separate database, Vercel Preview, Netlify branch deploy): plan in [docs/STAGING.md](docs/STAGING.md)
 - [ ] `POST /api/auth/refresh` to swap a refresh token for a new access token
-- [ ] Protect the original resource routes (books, logs, students, ...) with `authenticate` / `authorize`
+- [x] Protect the original resource routes (books, logs, students, ...) with `authenticate` / `authorize`, plus owner-only edit/delete for notes and dictionary words
 - [ ] Automated tests for the auth and users routes

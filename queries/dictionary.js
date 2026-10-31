@@ -14,6 +14,10 @@ const getAWord = (word) =>
     word
   );
 
+// Get one by id: the word, or null (used for ownership checks)
+const getWordById = (dictionaryId) =>
+  db.oneOrNone('SELECT * FROM personal_dictionary WHERE dictionary_id=$1', dictionaryId);
+
 // Delete: the deleted word, or null
 const deleteWord = (dictionaryId) =>
   db.oneOrNone('DELETE FROM personal_dictionary WHERE dictionary_id=$1 RETURNING *', dictionaryId);
@@ -89,6 +93,7 @@ const updateWord = (dictionary, dictionaryId) => {
 module.exports = {
   allWords,
   getAWord,
+  getWordById,
   deleteWord,
   createWord,
   checkWord,

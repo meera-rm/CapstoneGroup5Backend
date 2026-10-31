@@ -12,7 +12,7 @@ info:
 servers:
   - url: http://localhost:3010
     description: Local
-  - url: https://capstone-group5-backend.vercel.app/
+  - url: https://capstone-group5-backend.vercel.app
     description: Production
 components: 
   securitySchemes:
@@ -2137,7 +2137,7 @@ paths:
       tags:
       - Notes
       summary: Update a note
-      description: Any logged-in user.
+      description: 'Only the owner (or an admin) can edit it. Others get 403.'
       parameters:
       - name: noteId
         in: path
@@ -2170,6 +2170,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -2178,7 +2180,7 @@ paths:
       tags:
       - Notes
       summary: Delete a note
-      description: Any logged-in user.
+      description: 'Only the owner (or an admin) can delete it. Others get 403.'
       parameters:
       - name: noteId
         in: path
@@ -2205,6 +2207,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -2240,7 +2244,7 @@ paths:
       tags:
       - Dictionary
       summary: Add a word
-      description: Any logged-in user. Send `partsofSpeech` (camelCase) in the body.
+      description: Any logged-in user. The word is saved to your account (`users_id` in the body is ignored). Send `partsofSpeech` (camelCase) in the body.
       requestBody:
         required: true
         content:
@@ -2306,6 +2310,7 @@ paths:
       tags:
       - Dictionary
       summary: Update a word (by id)
+      description: 'Only the owner (or an admin) can edit it. Others get 403.'
       parameters:
       - name: wordOrId
         in: path
@@ -2338,6 +2343,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -2346,6 +2353,7 @@ paths:
       tags:
       - Dictionary
       summary: Delete a word (by id)
+      description: 'Only the owner (or an admin) can delete it. Others get 403.'
       parameters:
       - name: wordOrId
         in: path
@@ -2372,6 +2380,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':

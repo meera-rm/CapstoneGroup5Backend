@@ -81,12 +81,17 @@ const SWAGGER_CDN = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.34.1';
 app.use(
   '/api-docs',
   swaggerUi.serve,
-  swaggerUi.setup(openapiSpec, {
+ swaggerUi.setup(openapiSpec, {
     customCssUrl: `${SWAGGER_CDN}/swagger-ui.css`,
     customJs: [
       `${SWAGGER_CDN}/swagger-ui-bundle.js`,
       `${SWAGGER_CDN}/swagger-ui-standalone-preset.js`,
     ],
+    swaggerOptions: {
+      // Production: read-only docs (only GET can be tried). Local: everything.
+      supportedSubmitMethods:
+        process.env.NODE_ENV === 'production' ? ['get'] : ['get', 'post', 'put', 'delete'],
+    },
   })
 );
 
