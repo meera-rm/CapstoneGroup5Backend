@@ -45,6 +45,7 @@ app.get('/', (req, res) => {
         'POST   /api/auth/login',
         'POST   /api/auth/google',
         'GET    /api/auth/me',
+        'POST   /api/auth/refresh',
       ],
       users: [
         'GET    /api/users            (teacher, admin)   add ?page=1&limit=20 to paginate',
