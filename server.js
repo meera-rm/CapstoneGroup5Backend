@@ -3,7 +3,7 @@ const app = require('./app');
 
 require('dotenv').config();
 
-const { PORT } = process.env || 3010;
+const  PORT  = process.env.PORT || 3010;
 
 const message = 'Listening on port';
 

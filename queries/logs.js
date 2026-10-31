@@ -1,5 +1,20 @@
 const db = require('../db/dbConfig.js');
 
+const getLogsPage = async (studentId, limit, offset) => {
+
+  const logs = await db.any(
+    'SELECT * FROM logs WHERE students_id = $1 ORDER BY log_id DESC LIMIT $2 OFFSET $3',
+    [studentId, limit, offset]
+  );
+
+  const { total } = await db.one(
+    'SELECT COUNT(*)::int AS total FROM logs WHERE students_id = $1',
+    [studentId]
+  );
+ 
+  return { logs, total };
+};
+
 const getAllLogs = async (studentId) => {
 
   let allLogs;
@@ -98,6 +113,7 @@ const updateLog = async (log, logId) => {
 };
 
 module.exports = {
+  getLogsPage,
   getAllLogs,
   getALog,
   createLog,

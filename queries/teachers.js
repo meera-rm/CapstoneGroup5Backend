@@ -3,7 +3,17 @@ const db = require('../db/dbConfig');
 // Each query lets errors propagate (throw) so the controller can send a 500
 // instead of returning the Error object as if it were data.
 
-const allTeachers = () => db.any('SELECT * FROM teachers');
+
+const getTeachersPage = async (studentId, limit, offset) => {
+  const where = studentId ? 'WHERE students_id = $/studentId/' : '';
+  const params = { studentId, limit, offset };
+  const students = await db.any(
+    `SELECT * FROM students ${where} ORDER BY student_id LIMIT $/limit/ OFFSET $/offset/`, params);
+  const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM students ${where}`, params);
+  return { students, total };
+};
+
+const getAllTeachers = () => db.any('SELECT * FROM teachers');
 
 // oneOrNone: returns null (instead of throwing) when no teacher has this id
 const oneTeacher = (id) =>
@@ -72,7 +82,8 @@ const updateTeacher = (teacher, teacherId) => {
 };
 
 module.exports = {
-  allTeachers,
+  getTeachersPage,
+  getAllTeachers,
   oneTeacher,
   deleteTeacher,
   createTeacher,

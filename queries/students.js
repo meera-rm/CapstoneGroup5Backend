@@ -1,5 +1,14 @@
 const db = require('../db/dbConfig.js');
 
+const getStudentsPage = async (teacherId, limit, offset) => {
+  const where = teacherId ? 'WHERE teachers_id = $/teacherId/' : '';
+  const params = { teacherId, limit, offset };
+  const students = await db.any(
+    `SELECT * FROM students ${where} ORDER BY student_id LIMIT $/limit/ OFFSET $/offset/`, params);
+  const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM students ${where}`, params);
+  return { students, total };
+};
+
 const getAllStudents = async (teacherId) => {
 
   let allStudents;
@@ -116,6 +125,7 @@ const updateStudent = async ( student, studentId) => {
 };
 
 module.exports = {
+  getStudentsPage,
   getAStudent,
   createStudent,
   deleteStudent,

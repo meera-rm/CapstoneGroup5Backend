@@ -5,8 +5,12 @@ const teachers = express.Router();
 const studentController = require('./studentController');
 teachers.use('/:teacherId/students', studentController);
 
+
+const { getPagination, buildMeta } = require('../utils/pagination');
+
 const {
-  allTeachers,
+  getAllTeachers,
+  getTeachersPage,
   oneTeacher,
   deleteTeacher,
   createTeacher,
@@ -21,12 +25,15 @@ const serverError = (res, error, message) => {
 
 // get all teachers
 teachers.get('/', async (req, res) => {
-  try {
-    const all = await allTeachers();
-    res.status(200).json({ success: true, payload: all });
-  } catch (error) {
-    serverError(res, error, 'Could not load teachers');
+
+  const { studentId } = req.params;
+
+  if (!req.query.page) {            
+    return res.json(await getAllTeachers(studentId));
   }
+  const { page, limit, offset } = getPagination(req.query, 10);
+  const { students: rows, total } = await getTeachersPage(studentId, limit, offset);
+  res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
 });
 
 // get single teacher

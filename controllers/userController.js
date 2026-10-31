@@ -1,127 +1,133 @@
 var express = require('express');
 var users = express.Router();
-const bcrypt = require('bcryptjs');
 
-const db = require('../db/dbConfig.js');
-const jwtTokens = require('../utils/jwt-helpers.js');
-const validateEmail = require('../utils/emailValidation.js');
+const { getPagination, buildMeta } = require('../utils/pagination');
+const { authenticate, authorize } = require('../middleware/auth');
+const{ ROLES } = require('../utils/roles');
+const {
 
-/* GET users listing. */
-users.get('/', async function (req, res, next) {
+  getUsersPage,
+  allUsers,
+  oneUser,
+  deleteUser,
+  upDateUser,
+  
+} = require('../queries/users');
+
+
+// Every route below needs a logged-in user
+users.use(authenticate);
+
+
+// Helpers
+const parseId = (raw) => {
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+};
+const isSelf = (req, id) => Number(req.user.id) === id;
+const isStaff = (req) => ['teacher', 'admin'].includes(req.user.role);
+ 
+// ---------- GET /users ----------
+users.get('/', authorize('teacher', 'admin'), async (req, res) => {
   try {
-    const users = await db.any('SELECT * FROM users');
-    res.json({ users: users });
+    if (!req.query.page) return res.json({ users: await allUsers() });
+ 
+    const { page, limit, offset } = getPagination(req.query, 20);
+    const { users: rows, total } = await getUsersPage(limit, offset);
+    res.json({ users: rows, pagination: buildMeta(page, limit, total) });
   } catch (error) {
-    res.send({
-      status: 'error',
-      message: error.message,
-    });
+    console.error('list users error:', error);
+    res.status(500).json({ status: 'error', message: 'Could not load users' });
   }
 });
 
-users.get('/:email', async function (req, res, next) {
-  const { email } = req.params;
+
+
+// ---------- GET /users/:id ----------
+users.get('/:id', async (req, res) => {
   try {
-    const users = await db.any(
-      'SELECT * FROM users where user_email = $1, email'
-    );
-    res.json({ users: users });
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ status: 'error', message: 'Invalid user id' });
+ 
+    // Students can only see themselves
+    if (!isSelf(req, id) && !isStaff(req)) {
+      return res.status(403).json({ status: 'error', message: 'You do not have permission to do this' });
+    }
+ 
+    const user = await oneUser(id);
+    if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
+    res.json({ user });
   } catch (error) {
-    res.send({
-      status: 'error',
-      message: error.message,
-    });
+    console.error('get user error:', error);
+    res.status(500).json({ status: 'error', message: 'Could not load user' });
   }
 });
 
-users.post('/login', async (req, res) => {
+
+
+// ---------- PUT /users/:id ----------
+users.put('/:id', async (req, res) => {
   try {
-    let { username, password } = req.body;
-
-    const user = await db.one('SELECT * FROM users WHERE username=$1', [
-      username,
-    ]);
-
-    if (!user) {
-      res.status(401).send({ error: 'username is not correct' });
-      return;
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ status: 'error', message: 'Invalid user id' });
+ 
+    const isAdmin = req.user.role === 'admin';
+    if (!isSelf(req, id) && !isAdmin) {
+      return res.status(403).json({ status: 'error', message: 'You can only edit your own account' });
     }
-
-    const validPassword = await bcrypt.compare(password, user.password);
-
-    if (!validPassword) {
-      res
-        .status(401)
-        .send({ status: 'error', message: 'Invalid password for this user.' });
-      return;
+ 
+    // Only pick fields we allow — ignore anything else in the body (like user_password)
+    const { user_name, user_avatar, user_email, user_role } = req.body;
+ 
+    if (user_role !== undefined) {
+      if (!isAdmin) {
+        return res.status(403).json({ status: 'error', message: 'Only admins can change roles' });
+      }
+      if (!ROLES.includes(user_role)) {
+        return res.status(400).json({ status: 'error', message: `Role must be one of: ${ROLES.join(', ')}` });
+      }
+      if (isSelf(req, id) && user_role !== 'admin') {
+        return res.status(400).json({ status: 'error', message: "You can't remove your own admin role" });
+      }
     }
-
-    if (user && validPassword) {
-      let data = jwtTokens(user);
-
-      res.json(data);
-    }
+ 
+    const updated = await upDateUser({ user_name, user_avatar, user_email, user_role }, id);
+    if (!updated) return res.status(404).json({ status: 'error', message: 'User not found' });
+ 
+    // Note: the user's current JWT still has their old name/role until it refreshes.
+    res.json({ user: updated });
   } catch (error) {
-    res.send({
-      status: 'error',
-      message: error.message,
-    });
+  
+    if (error.code === '23505') { // Postgres: "unique value already exists"
+      return res.status(409).json({ status: 'error', message: 'That email is already in use' });
+    }
+    console.error('update user error:', error);
+    res.status(500).json({ status: 'error', message: 'Could not update user' });
+
   }
 });
 
-// create new user
-users.post('/', async (req, res) => {
+
+
+
+
+// ---------- DELETE /users/:id ----------
+users.delete('/:id', authorize('admin'), async (req, res) => {
   try {
-    // get data from request
-    let { username, userrole, useravatar, email, password } = req.body;
-
-    // validate data
-    if (username.length < 4) {
-      throw { message: 'Username must be 4 characters or more' };
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ status: 'error', message: 'Invalid user id' });
+ 
+    if (isSelf(req, id)) {
+      return res.status(400).json({ status: 'error', message: "You can't delete your own account here" });
     }
-
-    if (password.length < 6) {
-      throw { message: 'Password must be 6 characters or more' };
-    }
-
-    //validate email with validateemail function
-    if (!validateEmail(email)) {
-      throw { message: 'Please provide a valid email' };
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const emailToLowerCase = email.toLowerCase();
-
-    // insert data in users table
-    const user = await db.one(
-      'INSERT INTO users (username,user_role,user_avatar,email, password) VALUES ($1, $2, $3) RETURNING id, username, user_role, user_avatar,email,',
-      [username, userrole, useravatar, emailToLowerCase, hashedPassword]
-    );
-
-    if (user) {
-      // Generate JWT Token
-      let data = jwtTokens(user);
-
-      // send successful response
-      res.json(data);
-    }
+ 
+    const deleted = await deleteUser(id);
+    if (!deleted) return res.status(404).json({ status: 'error', message: 'User not found' });
+    res.json({ user: deleted });
   } catch (error) {
-    res.send({
-      status: 'error',
-      message: error.message,
-    });
+    console.error('delete user error:', error);
+    res.status(500).json({ status: 'error', message: 'Could not delete user' });
   }
 });
-
-users.get('/authenticate', async (req, res) => {
-  try {
-    console.log(req.headers);
-
-    console.log(accessToken);
-    res.send({});
-  } catch (error) {
-    res.send('error');
-  }
-});
-
+ 
 module.exports = users;

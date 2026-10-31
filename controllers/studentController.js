@@ -9,9 +9,12 @@ const db = require('../db/dbConfig');
 const logController = require('./logController.js');
 students.use('/:studentId/logs', logController);
 
+const { getPagination, buildMeta } = require('../utils/pagination');
+
 //import validation
 const {
   getAllStudents,
+  getStudentsPage,
   getAStudent,
   createStudent,
   updateStudent,
@@ -25,17 +28,13 @@ students.get('/', async (req, res) => {
   console.log('get all /');
 
   const { teacherId } = req.params;
-  const allStudents = await getAllStudents(teacherId);
-  console.log(allStudents);
-  try {
-    if (allStudents[0]) {
-      res.status(200).json(allStudents);
-    } else {
-      res.status(200).json([]);
-    }
-  } catch (error) {
-    res.status(404).json({ sucess: false });
+
+  if (!req.query.page) {            
+    return res.json(await getAllStudents(teacherId));
   }
+  const { page, limit, offset } = getPagination(req.query, 10);
+  const { students: rows, total } = await getStudentsPage(teacherId, limit, offset);
+  res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
 });
 
 //Show

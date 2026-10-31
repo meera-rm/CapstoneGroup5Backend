@@ -3,6 +3,8 @@ const express = require('express');
 //access to being able to things like get or set, update or delete
 const comments = express.Router({ mergeParams: true });
 
+const { getPagination, buildMeta } = require('../utils/pagination');
+ 
 // const logController = require('./logController.js');
 // comments.use('/logs/logid', logController);
 
@@ -21,11 +23,14 @@ const {
 comments.get('/', async (req, res) => {
 
   const { logId }=req.params;
-
-  console.log('get all /');
   try {
-    const allcomments = await getAllComments(logId);
-    res.status(200).json({ success: true, payload: allcomments });
+    if (!req.query.page) {
+      return res.json({ success: true, payload: await getAllComments(logId) });
+    }
+
+    const { page, limit, offset } = getPagination(req.query, 10);
+    const { comments: rows, total } = await getCommentsPage(logId, limit, offset);
+    res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
   } catch (error) {
     res.status(404).json({ sucess: false, message: 'no comments found' });
   }
@@ -33,7 +38,7 @@ comments.get('/', async (req, res) => {
 
 // //Show
 comments.get('/:commentId', async (req, res) => {
-  console.log('get one /:id');
+
   const { commentId } = req.params;
   try {
     const commentFound = await getComment(commentId);

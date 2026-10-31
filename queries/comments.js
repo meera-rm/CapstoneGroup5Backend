@@ -1,5 +1,20 @@
 const db = require('../db/dbConfig.js');
 
+const getCommentsPage = async (logId, limit, offset) => {
+    try {
+    const where = logId ? 'WHERE logs_id = $/logId/' : '';
+    const params = { logId, limit, offset };
+    const comments = await db.any(
+      `SELECT * FROM comments ${where} ORDER BY comment_id DESC LIMIT $/limit/ OFFSET $/offset/`, params);
+    const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM comments ${where}`, params);
+    return { comments, total };
+  } catch (error) {
+    console.error('getCommentsPage failed:', error.message);
+    throw error; // let the route's catch send a 500
+  }
+};
+
+
 const getAllComments = async (logId) => {
   let allComments;
   try {
@@ -88,6 +103,7 @@ const updateComment = async (comment, commentId) => {
 };
 
 module.exports = {
+  getCommentsPage,
   getAllComments,
   getComment,
   newComment,

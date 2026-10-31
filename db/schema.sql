@@ -81,7 +81,7 @@ DROP TABLE IF EXISTS users;
 
 CREATE TABLE users(
     user_id SERIAL PRIMARY KEY,
-    user_name TEXT NOT NULL UNIQUE,
+    user_name TEXT NOT NULL,
     user_role TEXT NOT NULL,
     user_avatar TEXT NOT NULL,
     user_email TEXT NOT NULL UNIQUE,

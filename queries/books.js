@@ -1,5 +1,25 @@
 const db = require('../db/dbConfig.js');
 
+const getBooksPage = async ({ q, readingLevel, limit, offset }) => {
+  try {
+    const conditions = [];
+    if (q) conditions.push('(book_title ILIKE $/search/ OR book_author ILIKE $/search/)');
+    if (readingLevel && readingLevel !== 'All') conditions.push('reading_level = $/readingLevel/');
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const params = { search: `%${q}%`, readingLevel, limit, offset };
+
+    const books = await db.any(
+      `SELECT * FROM books ${where} ORDER BY book_title, book_id LIMIT $/limit/ OFFSET $/offset/`,
+      params
+    );
+    const { total } = await db.one(`SELECT COUNT(*)::int AS total FROM books ${where}`, params);
+    return { books, total };
+  } catch (error) {
+    console.error('getBooksPage failed:', error.message);
+    throw error; // let the route's catch send a 500
+  }
+};
+
 const getAllBooks = async () => {
   try {
     const allBooks = await db.any('SELECT * FROM books');
@@ -99,6 +119,7 @@ const deleteBook = async (bookId) => {
 };
 
 module.exports = {
+  getBooksPage,
   getAllBooks,
   getABook,
   createBook,

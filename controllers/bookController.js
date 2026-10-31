@@ -5,7 +5,10 @@ const books = express.Router();
 
 const db = require('../db/dbConfig');
 
+const { getPagination, buildMeta } = require('../utils/pagination');
+ 
 const {
+  getBooksPage, 
   getAllBooks,
   getABook,
   createBook,
@@ -20,13 +23,21 @@ books.use('/:bookId/logs', logController);
 
 //Index
 books.get('/', async (req, res) => {
-  console.log('get all /');
-  try {
-    const allBooks = await getAllBooks();
-    res.status(200).json({ success: true, payload: allBooks });
-  } catch (error) {
-    res.status(404).json({ sucess: false, message: 'no Books found' });
-  }
+    try {
+      const allBooks = await getAllBooks();
+      res.status(200).json({ success: true, payload: allBooks });
+      if (!req.query.page) return res.json({ success: true, payload: await getAllBooks() });
+
+      const { page, limit, offset } = getPagination(req.query, 12);
+      const { books: rows, total } = await getBooksPage({
+        q: (req.query.q || '').trim(), readingLevel: req.query.level,
+        limit,
+        offset,
+      });
+   res.json({ success: true, payload: rows, pagination: buildMeta(page, limit, total) });
+    } catch (error) {
+     res.status(404).json({ sucess: false, message: 'no Books found' });
+    }
 });
 
 // //Show

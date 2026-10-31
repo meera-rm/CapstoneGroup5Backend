@@ -6,9 +6,13 @@ const logs = express.Router({ mergeParams: true });
 
 const db = require('../db/dbConfig');
 
+const { getPagination, buildMeta } = require('../utils/pagination');
+
+
 //import validation
 const {
   getAllLogs,
+  getLogsPage,
   getALog,
   createLog,
   updateLog,
@@ -26,15 +30,19 @@ logs.get('/', async (req, res) => {
   //console.log('get all /');
 
   const { studentId } = req.params;
-  const allLogs = await getAllLogs(studentId);
+
   try {
-    if (allLogs[0]) {
-      res.status(200).json(allLogs);
-    } else {
-      res.status(200).json([]);
+    if ( !req.query.page) {
+      const allLogs = await getAllLogs(studentId);
+      return res.status(200).json(Array.isArray(allLogs) ? allLogs : []);
     }
+    const { page, limit, offset } = getPagination(req.query, 6);
+    const { logs: pageLogs, total } = await getLogsPage(studentId, limit, offset);
+    res.status(200).json({ success: true, payload: pageLogs, pagination: buildMeta(page, limit, total) });
+  
   } catch (error) {
-    res.status(404).json({ sucess: false });
+    res.status(500).json({ success: false, message: 'Could not load logs' });
+  
   }
 });
 
