@@ -20,6 +20,25 @@ const getAllTeachers = () => db.any('SELECT * FROM teachers ORDER BY teacher_id'
 const oneTeacher = (id) =>
   db.oneOrNone('SELECT * FROM teachers WHERE teacher_id=$1', id);
 
+const getTeacherByUserId = (userId) =>
+  db.oneOrNone('SELECT * FROM teachers WHERE user_id = $1', userId);
+
+const getTeacherByEmail = (userId) =>
+  db.oneOrNone('SELECT * FROM teachers WHERE teacher_email=$1', userId);         
+
+// Students in a teacher's classes for one school year (reads classrooms + enrollments)
+const studentsForTeacherYear = (teacherId, academicYear) =>
+  db.any(
+    `SELECT s.student_id, s.student_name, s.grade, s.student_avatar,
+            c.classroom_id, c.class_name
+     FROM classrooms c
+     JOIN enrollments e ON e.classroom_id = c.classroom_id
+     JOIN students s    ON s.student_id = e.student_id
+     WHERE c.teacher_id = $1 AND c.academic_year = $2
+     ORDER BY s.student_name`,
+    [teacherId, academicYear]
+  );
+
 const deleteTeacher = (id) =>
   db.oneOrNone('DELETE FROM teachers WHERE teacher_id=$1 RETURNING *', id);
 
@@ -89,4 +108,7 @@ module.exports = {
   deleteTeacher,
   createTeacher,
   updateTeacher,
+  getTeacherByEmail,
+  studentsForTeacherYear,
+  getTeacherByUserId
 };

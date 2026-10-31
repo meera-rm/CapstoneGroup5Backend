@@ -2,20 +2,26 @@ const express = require('express');
 
 const teachers = express.Router();
 
+const { sendDbError } = require('../utils/dbErrors');
+const { getPagination, buildMeta } = require('../utils/pagination');
 const studentController = require('./studentController');
 teachers.use('/:teacherId/students', studentController);
+
 const { authenticate, authorize } = require('../middleware/auth');
 teachers.use(authenticate)
 
-const { getPagination, buildMeta } = require('../utils/pagination');
+
 
 const {
-  getAllTeachers,
   getTeachersPage,
+  getAllTeachers,
   oneTeacher,
   deleteTeacher,
   createTeacher,
   updateTeacher,
+  getTeacherByEmail,
+  studentsForTeacherYear,
+  getTeacherByUserId
 } = require('../queries/teachers.js');
 
 // Sends a real 500 when the database fails, instead of a fake success
@@ -42,9 +48,27 @@ teachers.get('/', async (req, res) => {
       pagination: buildMeta(page, limit, total),
     });
   } catch (error) {
-    serverError(res, error, 'Could not load teachers');
+    sendDbError(res, error, 'Could not load teachers');
   }
 });
+
+teachers.get('/me', authorize('teacher', 'admin'), async (req, res) => {
+  try {
+    const teacher = await getTeacherByUserId(req.user.id);
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        message: 'No teacher record is linked to this login.',
+      });
+    }
+    const academicYear = req.query.academicYear || '2025-2026';
+    const students = await studentsForTeacherYear(teacher.teacher_id, academicYear);
+    res.status(200).json({ success: true, payload: { teacher, academicYear, students } });
+  } catch (error) {
+    sendDbError(res, error, 'Could not load your class');
+  }
+});
+
 
 // get single teacher
 teachers.get('/:id', async (req, res) => {
@@ -57,7 +81,7 @@ teachers.get('/:id', async (req, res) => {
     }
     res.status(200).json({ success: true, payload: teacher });
   } catch (error) {
-    serverError(res, error, 'Could not load teacher');
+    sendDbError(res, error, 'Could not load teacher');
   }
 });
 
@@ -67,7 +91,7 @@ teachers.post('/new', authorize('admin'), async (req, res) => {
     const added = await createTeacher(req.body);
     res.status(200).json({ success: true, payload: added });
   } catch (error) {
-    serverError(res, error, 'Teacher cannot be added');
+    sendDbError(res, error, 'Teacher cannot be added');
   }
 });
 
@@ -82,7 +106,7 @@ teachers.put('/:teacherId', authorize('admin'), async (req, res) => {
     }
     res.status(200).json({ success: true, payload: updated });
   } catch (error) {
-    serverError(res, error, 'Teacher cannot be updated');
+    sendDbError(res, error, 'Teacher cannot be updated');
   }
 });
 
@@ -97,7 +121,7 @@ teachers.delete('/:id', authorize('admin'), async (req, res) => {
     }
     res.status(200).json({ success: true, payload: deleted });
   } catch (error) {
-    serverError(res, error, 'Teacher cannot be deleted');
+    sendDbError(res, error, 'Teacher cannot be deleted');
   }
 });
 

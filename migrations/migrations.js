@@ -8,6 +8,7 @@ const MIGRATION_FILES = [
   'logs_pagination_index.sql',
   'google_login.sql',
   'subscriptions.sql',
+  'classrooms.sql',
 ];
 
 async function runMigrations() {
