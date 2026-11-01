@@ -27,6 +27,12 @@ const getStudentsByParentEmail = (email) =>
 
 const getAStudent = (id) => db.oneOrNone('SELECT * FROM students WHERE student_id=$1', id);
 
+
+// A student's own record, found by their login
+const getStudentByUserId = (userId) =>
+  db.oneOrNone('SELECT * FROM students WHERE user_id = $1', userId);
+
+
 // Create: always exactly one new row
 const createStudent = (student) => {
   const {
@@ -77,4 +83,5 @@ module.exports = {
   deleteStudent,
   updateStudent,
   getAllStudents,
+  getStudentByUserId
 };

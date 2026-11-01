@@ -13,6 +13,8 @@ students.use(authenticate); // every student route needs a token (before nested 
 const logController = require('./logController.js');
 students.use('/:studentId/logs', logController);
 
+const { getAllLogs } = require('../queries/logs');
+
 const {
   getStudentsByParentEmail,
   getAllStudents,
@@ -21,6 +23,7 @@ const {
   createStudent,
   updateStudent,
   deleteStudent,
+  getStudentByUserId
 } = require('../queries/students');
 
 // Parents only ever see their own children (students.parent_email = their login email).
@@ -36,6 +39,38 @@ students.get('/mine', authorize('parent'), async (req, res) => {
   } catch (error) {
     sendDbError(res, error, 'Could not load your children');
   }
+});
+
+
+students.get('/me', authorize('student'), async (req, res) => {
+  ;
+  try {
+    const student = await getStudentByUserId(req.user.id);
+    if (!student) {
+      return res.status(404).json({ error: 'No student record is linked to this login.' });
+    }
+    const logs = await getAllLogs(student.student_id);
+    const totals = logs.reduce(
+      (sum, log) => ({
+        minutes: sum.minutes + (log.reading_minutes || 0),
+        pages: sum.pages + (log.pages_read || 0),
+      }),
+      { minutes: 0, pages: 0 }
+    );
+
+     // Distinct book titles from the student's logs
+    const books = [...new Set(logs.map((log) => log.book_title).filter(Boolean))];
+
+    res.json({
+      student,
+      totals: { logs: logs.length, ...totals },
+      books,
+      logs,
+    });
+  } catch (error) {
+    sendDbError(res, error, 'Could not load your reading');
+  }
+  
 });
 
 // Index
