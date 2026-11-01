@@ -33,12 +33,13 @@ const getStudentByUserId = (userId) =>
   db.oneOrNone('SELECT * FROM students WHERE user_id = $1', userId);
 
 // Students enrolled in any classroom this teacher teaches
+// A teacher's students: enrolled in one of their classrooms, or added with this teacher as their teacher
 const getStudentsInTeacherClasses = (teacherId) =>
   db.any(
     `SELECT DISTINCT s.* FROM students s
-     JOIN enrollments e ON e.student_id = s.student_id
-     JOIN classrooms c  ON c.classroom_id = e.classroom_id
-     WHERE c.teacher_id = $1
+     LEFT JOIN enrollments e ON e.student_id = s.student_id
+     LEFT JOIN classrooms c  ON c.classroom_id = e.classroom_id
+     WHERE c.teacher_id = $1 OR s.teachers_id = $1
      ORDER BY s.student_id`,
     teacherId
   );
@@ -49,6 +50,8 @@ const isStudentInTeacherClass = (studentId, teacherId) =>
     `SELECT 1 FROM enrollments e
      JOIN classrooms c ON c.classroom_id = e.classroom_id
      WHERE e.student_id = $1 AND c.teacher_id = $2
+     UNION
+     SELECT 1 FROM students WHERE student_id = $1 AND teachers_id = $2
      LIMIT 1`,
     [studentId, teacherId]
   );

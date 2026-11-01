@@ -35,7 +35,12 @@ const studentsForTeacherYear = (teacherId, academicYear) =>
      JOIN enrollments e ON e.classroom_id = c.classroom_id
      JOIN students s    ON s.student_id = e.student_id
      WHERE c.teacher_id = $1 AND c.academic_year = $2
-     ORDER BY s.student_name`,
+     UNION
+     SELECT s.student_id, s.student_name, s.grade, s.student_avatar,
+            NULL::int AS classroom_id, NULL::text AS class_name
+     FROM students s
+     WHERE s.teachers_id = $1 AND s.academic_year = $2
+     ORDER BY student_name`,
     [teacherId, academicYear]
   );
 
@@ -122,7 +127,15 @@ const createTeacherForUser = (userId, name, school) =>
     [name, school, userId]
   );
 
+// Teachers editing their own profile (only the fields they are allowed to change)
+const updateTeacherProfile = (teacherId, p) =>
+  db.oneOrNone(
+    'UPDATE teachers SET school_name=$2, class_subject=$3, teaching_grade=$4, teacher_email=$5 WHERE teacher_id=$1 RETURNING *',
+    [teacherId, p.school_name, p.class_subject, p.teaching_grade, p.teacher_email]
+  );
+
 module.exports = {
+  updateTeacherProfile,
   linkUnlinkedTeacherByEmail,
   createTeacherForUser,
   getTeachersPage,

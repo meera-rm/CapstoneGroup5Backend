@@ -21,7 +21,8 @@ const {
   updateTeacher,
   getTeacherByEmail,
   studentsForTeacherYear,
-  getTeacherByUserId
+  getTeacherByUserId,
+  updateTeacherProfile,
 } = require('../queries/teachers.js');
 
 // Sends a real 500 when the database fails, instead of a fake success
@@ -35,13 +36,11 @@ const teacherStaffOnly = (req, res, next) =>
     ? next()
     : res.status(403).json({ success: false, message: 'You do not have permission to do this' });
 
-teachers.get('/', teacherStaffOnly, async (req, res) => { /* existing body */ });
-teachers.get('/:id', teacherStaffOnly, async (req, res) => { /* existing body */ });
 
 
 // get all teachers
 // Without ?page: every teacher. With ?page=&limit=: one page plus pagination info.
-teachers.get('/', async (req, res) => {
+teachers.get('/', teacherStaffOnly, async (req, res) => {
   try {
     if (!req.query.page) {
       const all = await getAllTeachers();
@@ -77,8 +76,29 @@ teachers.get('/me', authorize('teacher', 'admin'), async (req, res) => {
 });
 
 
+// A teacher edits their own profile. Fields left out of the body keep their current value.
+teachers.put('/me', authorize('teacher', 'admin'), async (req, res) => {
+  try {
+    const teacher = await getTeacherByUserId(req.user.id);
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'No teacher record is linked to this login.' });
+    }
+    const pick = (field) =>
+      typeof req.body[field] === 'string' ? req.body[field].trim() : teacher[field];
+    const updated = await updateTeacherProfile(teacher.teacher_id, {
+      school_name: pick('school_name'),
+      class_subject: pick('class_subject'),
+      teaching_grade: pick('teaching_grade'),
+      teacher_email: pick('teacher_email'),
+    });
+    res.json({ success: true, payload: updated });
+  } catch (error) {
+    sendDbError(res, error, 'Could not update your profile');
+  }
+});
+
 // get single teacher
-teachers.get('/:id', async (req, res) => {
+teachers.get('/:id', teacherStaffOnly, async (req, res) => {
   try {
     const teacher = await oneTeacher(req.params.id);
     if (!teacher) {

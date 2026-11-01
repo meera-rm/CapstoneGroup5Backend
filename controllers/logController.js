@@ -9,7 +9,7 @@ const { getPagination, buildMeta } = require('../utils/pagination');
 const { authenticate, authorize } = require('../middleware/auth');
 const { sendDbError } = require('../utils/dbErrors');
 const { canViewStudent } = require('../utils/access');
-const { getAStudent } = require('../queries/students');
+const { getAStudent, getStudentByUserId } = require('../queries/students');
 const { getTeacherByUserId } = require('../queries/teachers');
 
   
@@ -84,7 +84,16 @@ logs.get('/:logId', async (req, res) => {
 // Create
 logs.post('/new', authorize('student', 'teacher', 'admin'), async (req, res) => {
   try {
-    const addLog = await createLog(req.body);
+    const body = { reading_inference: '', books_id: null, ...req.body };
+    if (req.user.role === 'student') {
+      // A student can only log reading for their own record, never someone else's
+      const me = await getStudentByUserId(req.user.id);
+      if (!me) {
+        return res.status(404).json({ success: false, message: 'No student record is linked to this login.' });
+      }
+      body.students_id = me.student_id;
+    }
+    const addLog = await createLog(body);
     res.status(200).json({ success: true, payload: addLog });
   } catch (error) {
     sendDbError(res, error, 'Log cannot be added');
