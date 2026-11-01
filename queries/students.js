@@ -32,28 +32,50 @@ const getAStudent = (id) => db.oneOrNone('SELECT * FROM students WHERE student_i
 const getStudentByUserId = (userId) =>
   db.oneOrNone('SELECT * FROM students WHERE user_id = $1', userId);
 
-// Students enrolled in any classroom this teacher teaches
-// A teacher's students: enrolled in one of their classrooms, or added with this teacher as their teacher
-const getStudentsInTeacherClasses = (teacherId) =>
+// A teacher's students for one school year: enrolled in one of their classrooms that year.
+// Enrollments are the only source of truth, so a student can have a different teacher each year.
+const getStudentsInTeacherClasses = (teacherId, academicYear) =>
   db.any(
     `SELECT DISTINCT s.* FROM students s
-     LEFT JOIN enrollments e ON e.student_id = s.student_id
-     LEFT JOIN classrooms c  ON c.classroom_id = e.classroom_id
-     WHERE c.teacher_id = $1 OR s.teachers_id = $1
+     JOIN enrollments e ON e.student_id = s.student_id
+     JOIN classrooms c  ON c.classroom_id = e.classroom_id
+     WHERE c.teacher_id = $1 AND c.academic_year = $2
      ORDER BY s.student_id`,
-    teacherId
+    [teacherId, academicYear]
   );
 
-// Is this student enrolled in a classroom this teacher teaches?
+// The school years this student is enrolled in a class, newest first
+const getEnrolledYears = async (studentId) => {
+  const rows = await db.any(
+    `SELECT DISTINCT c.academic_year FROM enrollments e
+     JOIN classrooms c ON c.classroom_id = e.classroom_id
+     WHERE e.student_id = $1
+     ORDER BY c.academic_year DESC`,
+    studentId
+  );
+  return rows.map((r) => r.academic_year);
+};
+
+// Is this student enrolled in any classroom this teacher teaches (any year)?
 const isStudentInTeacherClass = (studentId, teacherId) =>
   db.oneOrNone(
     `SELECT 1 FROM enrollments e
      JOIN classrooms c ON c.classroom_id = e.classroom_id
      WHERE e.student_id = $1 AND c.teacher_id = $2
-     UNION
-     SELECT 1 FROM students WHERE student_id = $1 AND teachers_id = $2
      LIMIT 1`,
     [studentId, teacherId]
+  );
+
+// The teacher a student had for one school year (null if not enrolled that year)
+const getStudentClassForYear = (studentId, academicYear) =>
+  db.oneOrNone(
+    `SELECT t.teacher_id, t.teacher_name, t.teacher_email, c.class_name, c.academic_year
+     FROM enrollments e
+     JOIN classrooms c ON c.classroom_id = e.classroom_id
+     JOIN teachers t   ON t.teacher_id = c.teacher_id
+     WHERE e.student_id = $1 AND c.academic_year = $2
+     LIMIT 1`,
+    [studentId, academicYear]
   );
 
 
@@ -123,4 +145,6 @@ module.exports = {
   getStudentByUserId,
   isStudentInTeacherClass,
   getStudentsInTeacherClasses,
+  getStudentClassForYear,
+  getEnrolledYears,
 };

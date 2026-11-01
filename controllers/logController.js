@@ -103,7 +103,17 @@ logs.post('/new', authorize('student', 'teacher', 'admin'), async (req, res) => 
 // Update
 logs.put('/:logId', authorize('student', 'teacher', 'admin'), async (req, res) => {
   try {
-    const updatedLog = await updateLog(req.body, req.params.logId);
+    const body = { ...req.body };
+    if (req.user.role === 'student') {
+      // A student can change only their own logs (to fix a mistake), and the log stays theirs
+      const me = await getStudentByUserId(req.user.id);
+      const existing = await getALog(req.params.logId);
+      if (!me || !existing || Number(existing.students_id) !== Number(me.student_id)) {
+        return res.status(403).json({ success: false, message: 'You can only edit your own logs' });
+      }
+      body.students_id = me.student_id;
+    }
+    const updatedLog = await updateLog(body, req.params.logId);
     if (!updatedLog) return res.status(404).json({ success: false, message: 'Log not found' });
     res.status(200).json({ success: true, payload: updatedLog });
   } catch (error) {
@@ -112,7 +122,8 @@ logs.put('/:logId', authorize('student', 'teacher', 'admin'), async (req, res) =
 });
 
 // Delete
-logs.delete('/:logId', authorize('student', 'teacher', 'admin'), async (req, res) => {
+// Students cannot delete logs (they edit a mistake instead); teachers and admins can
+logs.delete('/:logId', authorize('teacher', 'admin'), async (req, res) => {
   try {
     const deletedLog = await deleteLog(req.params.logId);
     if (!deletedLog) return res.status(404).json({ success: false, payload: 'not found' });

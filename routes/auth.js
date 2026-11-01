@@ -24,8 +24,8 @@ const {
 
 const { jwtTokens, verifyRefreshToken } = require('../utils/jwt-helpers');
 const { SELF_SIGNUP_ROLES } = require('../utils/roles');
-const { linkUnlinkedTeacherByEmail, createTeacherForUser } = require('../queries/teachers');
-const { linkUnlinkedStudentByEmail } = require('../queries/students');
+const { linkUnlinkedTeacherByEmail } = require('../queries/teachers');
+const { linkUnlinkedStudentByEmail, getStudentsByParentEmail } = require('../queries/students');
 const { deleteUser } = require('../queries/users');
 const { authenticate } = require('../middleware/auth');
  
@@ -81,12 +81,30 @@ router.post('/register',  authLimiter, async (req, res) => {
     // and a teacher with no match gets a new teachers row. If that fails, remove the login.
     try {
       if (user.user_role === 'teacher') {
-        const claimed = await linkUnlinkedTeacherByEmail(email, user.user_id);
+        const school = (req.body.school_name || '').trim();
+        // A teacher can sign up only if an admin already added a teacher with this email
+        const claimed = await linkUnlinkedTeacherByEmail(email, user.user_id, school);
         if (!claimed) {
-          await createTeacherForUser(user.user_id, user.user_name, (req.body.school_name || '').trim());
+          const noTeacher = new Error('No teacher record matches this email');
+          noTeacher.noTeacher = true;
+          throw noTeacher;
         }
       } else if (user.user_role === 'student') {
-        await linkUnlinkedStudentByEmail(email, user.user_id);
+        // A student can sign up only if a teacher or admin already added a student with this email
+        const claimed = await linkUnlinkedStudentByEmail(email, user.user_id);
+        if (!claimed) {
+          const noStudent = new Error('No student record matches this email');
+          noStudent.noStudent = true;
+          throw noStudent;
+        }
+      } else if (user.user_role === 'parent') {
+        // A parent can sign up only if a child is already registered with their email
+        const children = await getStudentsByParentEmail(email);
+        if (!children || children.length === 0) {
+          const noChild = new Error('No child matches this email');
+          noChild.noChild = true;
+          throw noChild;
+        }
       }
     } catch (linkErr) {
       await deleteUser(user.user_id);
@@ -95,6 +113,15 @@ router.post('/register',  authLimiter, async (req, res) => {
 
     return sendAuth(res, user, 201);
   } catch (err) {
+    if (err.noTeacher) {
+      return res.status(400).json({ error: 'No teacher record matches this email. Ask an admin to add you first.' });
+    }
+    if (err.noChild) {
+      return res.status(400).json({ error: 'No child is registered with this email. Ask your child\'s teacher to add them first.' });
+    }
+    if (err.noStudent) {
+      return res.status(400).json({ error: 'No student record matches this email. Ask your teacher to add you first.' });
+    }
     console.error('register error:', err);
     return res.status(500).json({ error: 'Could not create account' });
   }

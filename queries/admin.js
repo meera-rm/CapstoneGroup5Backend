@@ -20,7 +20,13 @@ const linkTeacher = (teacherId, userId) =>
     if (userId) {
       await t.none('UPDATE teachers SET user_id = NULL WHERE user_id = $1 AND teacher_id <> $2', [userId, teacherId]);
     }
-    return t.oneOrNone('UPDATE teachers SET user_id = $2 WHERE teacher_id = $1 RETURNING *', [teacherId, userId]);
+    // The teacher's email always matches their login email
+    return t.oneOrNone(
+      `UPDATE teachers SET user_id = $2,
+         teacher_email = (SELECT user_email FROM users WHERE user_id = $2)
+       WHERE teacher_id = $1 RETURNING *`,
+      [teacherId, userId]
+    );
   });
 
 const linkStudent = (studentId, userId) =>

@@ -6,6 +6,7 @@ const comments = express.Router({ mergeParams: true });
 const { getPagination, buildMeta } = require('../utils/pagination');
 const { authenticate, authorize } = require('../middleware/auth');
 const { sendDbError } = require('../utils/dbErrors');
+const { canViewLog } = require('../utils/access');
 
 comments.use(authenticate);
 
@@ -23,6 +24,15 @@ const {
 comments.get('/', async (req, res) => {
   const { logId } = req.params;
   try {
+    if (logId) {
+      // Comments on one log: only people who can see that student's logs
+      if (!(await canViewLog(req.user, logId))) {
+        return res.status(403).json({ success: false, message: 'You do not have permission to do this' });
+      }
+    } else if (!['teacher', 'admin'].includes(req.user.role)) {
+      // Every comment from every student: staff only
+      return res.status(403).json({ success: false, message: 'You do not have permission to do this' });
+    }
     if (!req.query.page) {
       return res.json({ success: true, payload: await getAllComments(logId) });
     }
@@ -41,6 +51,9 @@ comments.get('/:commentId', async (req, res) => {
     if (!commentFound) {
       return res.status(404).json({ success: false, message: 'Cannot find the comment with the given id' });
     }
+    if (!(await canViewLog(req.user, commentFound.logs_id))) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to do this' });
+    }
     res.status(200).json({ success: true, payload: commentFound });
   } catch (error) {
     sendDbError(res, error, 'Could not load comment');
@@ -50,6 +63,9 @@ comments.get('/:commentId', async (req, res) => {
 // Get the comment for a log (payload is null if the log has no comment yet)
 comments.get('/logs/:logId', async (req, res) => {
   try {
+    if (!(await canViewLog(req.user, req.params.logId))) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to do this' });
+    }
     const commentFound = await getCommentByLogId(req.params.logId);
     res.status(200).json({ success: true, payload: commentFound });
   } catch (error) {

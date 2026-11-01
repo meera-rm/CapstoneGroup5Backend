@@ -1,5 +1,6 @@
 const { getTeacherByUserId } = require('../queries/teachers');
-const { isStudentInTeacherClass } = require('../queries/students');
+const { isStudentInTeacherClass, getAStudent } = require('../queries/students');
+const { getALog } = require('../queries/logs');
 
 // Can this logged-in user see this student's data (record and logs)?
 async function canViewStudent(user, student) {
@@ -24,4 +25,12 @@ async function canViewStudent(user, student) {
   return false;
 }
 
-module.exports = { canViewStudent };
+// Can this user see a log? Same rule as the student the log belongs to.
+async function canViewLog(user, logId) {
+  const log = await getALog(logId);
+  if (!log) return false;
+  const student = await getAStudent(log.students_id);
+  return canViewStudent(user, student);
+}
+
+module.exports = { canViewStudent, canViewLog };

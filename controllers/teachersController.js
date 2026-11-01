@@ -8,6 +8,8 @@ const studentController = require('./studentController');
 teachers.use('/:teacherId/students', studentController);
 
 const { authenticate, authorize } = require('../middleware/auth');
+const { CURRENT_ACADEMIC_YEAR, validAcademicYear } = require('../utils/academicYear');
+const { findClassroom, saveClassroom } = require('../queries/classrooms');
 teachers.use(authenticate)
 
 
@@ -67,9 +69,10 @@ teachers.get('/me', authorize('teacher', 'admin'), async (req, res) => {
         message: 'No teacher record is linked to this login.',
       });
     }
-    const academicYear = req.query.academicYear || '2025-2026';
+    const academicYear = validAcademicYear(req.query.academicYear);
+    const classroom = await findClassroom(teacher.teacher_id, academicYear);
     const students = await studentsForTeacherYear(teacher.teacher_id, academicYear);
-    res.status(200).json({ success: true, payload: { teacher, academicYear, students } });
+    res.status(200).json({ success: true, payload: { teacher, academicYear, classroom, students } });
   } catch (error) {
     sendDbError(res, error, 'Could not load your class');
   }
@@ -89,8 +92,15 @@ teachers.put('/me', authorize('teacher', 'admin'), async (req, res) => {
       school_name: pick('school_name'),
       class_subject: pick('class_subject'),
       teaching_grade: pick('teaching_grade'),
-      teacher_email: pick('teacher_email'),
+      // The teacher's email is always the login email
+      teacher_email: req.user.email || teacher.teacher_email,
     });
+    // Saving a class name creates or renames the classroom for that school year.
+    // Students join the class only when the teacher adds them.
+    if (typeof req.body.class_name === 'string' && req.body.class_name.trim()) {
+      const year = validAcademicYear(req.body.academic_year);
+      await saveClassroom(teacher.teacher_id, year, req.body.class_name.trim());
+    }
     res.json({ success: true, payload: updated });
   } catch (error) {
     sendDbError(res, error, 'Could not update your profile');

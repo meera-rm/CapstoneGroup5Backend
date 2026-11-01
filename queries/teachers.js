@@ -35,12 +35,7 @@ const studentsForTeacherYear = (teacherId, academicYear) =>
      JOIN enrollments e ON e.classroom_id = c.classroom_id
      JOIN students s    ON s.student_id = e.student_id
      WHERE c.teacher_id = $1 AND c.academic_year = $2
-     UNION
-     SELECT s.student_id, s.student_name, s.grade, s.student_avatar,
-            NULL::int AS classroom_id, NULL::text AS class_name
-     FROM students s
-     WHERE s.teachers_id = $1 AND s.academic_year = $2
-     ORDER BY student_name`,
+     ORDER BY s.student_name`,
     [teacherId, academicYear]
   );
 
@@ -111,20 +106,21 @@ const updateTeacher = (teacher, teacherId) => {
 };
 
 // Signup helpers: link an unclaimed teacher row whose teacher_email matches, else create one
-const linkUnlinkedTeacherByEmail = (email, userId) =>
+const linkUnlinkedTeacherByEmail = (email, userId, school) =>
   db.oneOrNone(
-    `UPDATE teachers SET user_id = $2
+    `UPDATE teachers SET user_id = $2,
+       school_name = COALESCE(NULLIF($3, ''), school_name)
      WHERE teacher_id = (SELECT teacher_id FROM teachers
                          WHERE LOWER(teacher_email) = LOWER($1) AND user_id IS NULL
                          ORDER BY teacher_id LIMIT 1)
      RETURNING *`,
-    [email, userId]
+    [email, userId, school || '']
   );
 
-const createTeacherForUser = (userId, name, school) =>
+const createTeacherForUser = (userId, name, school, email) =>
   db.one(
-    'INSERT INTO teachers(teacher_name, school_name, user_id) VALUES ($1, $2, $3) RETURNING *',
-    [name, school, userId]
+    'INSERT INTO teachers(teacher_name, school_name, user_id, teacher_email) VALUES ($1, $2, $3, $4) RETURNING *',
+    [name, school, userId, email]
   );
 
 // Teachers editing their own profile (only the fields they are allowed to change)

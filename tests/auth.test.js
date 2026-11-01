@@ -51,6 +51,7 @@ describe('POST /api/auth/register', () => {
   test('201: hashes the password, forces role "student", returns tokens', async () => {
     queries.emailExists.mockResolvedValue(false);
     queries.createUser.mockResolvedValue(users.student);
+    studentQ.linkUnlinkedStudentByEmail.mockResolvedValueOnce({ student_id: 1 });
 
     // Try to sneak in an admin role: it must be ignored
     const res = await request(app).post('/api/auth/register').send({ ...body, user_role: 'admin' });
@@ -69,6 +70,8 @@ describe('POST /api/auth/register', () => {
   test.each(['teacher', 'parent'])('201: accepts an allowed self-signup role "%s"', async (role) => {
     queries.emailExists.mockResolvedValue(false);
     queries.createUser.mockResolvedValue({ ...users.student, user_role: role });
+    teacherQ.linkUnlinkedTeacherByEmail.mockResolvedValueOnce({ teacher_id: 1 });
+    studentQ.getStudentsByParentEmail.mockResolvedValueOnce([{ student_id: 1 }]);
 
     const res = await request(app).post('/api/auth/register').send({ ...body, user_role: role });
 
@@ -76,9 +79,22 @@ describe('POST /api/auth/register', () => {
     expect(queries.createUser.mock.calls[0][0].user_role).toBe(role);
   });
 
+  test('400 and no account when a parent has no registered child', async () => {
+    queries.emailExists.mockResolvedValue(false);
+    queries.createUser.mockResolvedValue({ ...users.student, user_id: 9, user_role: 'parent' });
+    studentQ.getStudentsByParentEmail.mockReset();
+    studentQ.getStudentsByParentEmail.mockResolvedValueOnce([]);
+
+    const res = await request(app).post('/api/auth/register').send({ ...body, user_role: 'parent' });
+
+    expect(res.status).toBe(400);
+    expect(queries.deleteUser).toHaveBeenCalledWith(9);
+  });
+
   test('201: unknown or missing role falls back to "student"', async () => {
     queries.emailExists.mockResolvedValue(false);
     queries.createUser.mockResolvedValue(users.student);
+    studentQ.linkUnlinkedStudentByEmail.mockResolvedValueOnce({ student_id: 1 });
 
     const res = await request(app).post('/api/auth/register').send({ ...body, user_role: 'superuser' });
 
@@ -94,23 +110,37 @@ describe('POST /api/auth/register', () => {
     const res = await request(app).post('/api/auth/register').send({ ...body, user_role: 'teacher' });
 
     expect(res.status).toBe(201);
-    expect(teacherQ.linkUnlinkedTeacherByEmail).toHaveBeenCalledWith('sam@test.com', 9);
+    expect(teacherQ.linkUnlinkedTeacherByEmail).toHaveBeenCalledWith('sam@test.com', 9, '');
     expect(teacherQ.createTeacherForUser).not.toHaveBeenCalled();
   });
 
-  test('teacher signup with no matching row creates a teachers row with the school', async () => {
+  test('400 and no account when no teacher record matches the email', async () => {
     queries.emailExists.mockResolvedValue(false);
     queries.createUser.mockResolvedValue({ ...users.student, user_id: 9, user_role: 'teacher' });
-    teacherQ.linkUnlinkedTeacherByEmail.mockResolvedValue(null);
+    teacherQ.linkUnlinkedTeacherByEmail.mockResolvedValueOnce(null);
 
-    await request(app).post('/api/auth/register').send({ ...body, user_role: 'teacher', school_name: ' Lincoln ' });
+    const res = await request(app).post('/api/auth/register').send({ ...body, user_role: 'teacher' });
 
-    expect(teacherQ.createTeacherForUser).toHaveBeenCalledWith(9, 'Sam Student', 'Lincoln');
+    expect(res.status).toBe(400);
+    expect(queries.deleteUser).toHaveBeenCalledWith(9);
+    expect(teacherQ.createTeacherForUser).not.toHaveBeenCalled();
+  });
+
+  test('400 and no account when no student record matches the email', async () => {
+    queries.emailExists.mockResolvedValue(false);
+    queries.createUser.mockResolvedValue({ ...users.student, user_id: 9 });
+    studentQ.linkUnlinkedStudentByEmail.mockResolvedValueOnce(null);
+
+    const res = await request(app).post('/api/auth/register').send(body);
+
+    expect(res.status).toBe(400);
+    expect(queries.deleteUser).toHaveBeenCalledWith(9);
   });
 
   test('student signup claims a matching student_email row', async () => {
     queries.emailExists.mockResolvedValue(false);
     queries.createUser.mockResolvedValue({ ...users.student, user_id: 9 });
+    studentQ.linkUnlinkedStudentByEmail.mockResolvedValueOnce({ student_id: 1 });
 
     await request(app).post('/api/auth/register').send(body);
 

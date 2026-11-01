@@ -20,6 +20,16 @@ const getAllComments = (logId) =>
     ? db.any('SELECT * FROM comments WHERE logs_id=$1 ORDER BY comment_id', logId)
     : db.any('SELECT * FROM comments ORDER BY comment_id');
 
+// All teacher comments on one student's logs (one query), with the log they belong to
+const getCommentsForStudent = (studentId) =>
+  db.any(
+    `SELECT c.logs_id, c.teacher_comments FROM comments c
+     JOIN logs l ON l.log_id = c.logs_id
+     WHERE l.students_id = $1
+     ORDER BY c.comment_id`,
+    studentId
+  );
+
 // Get one: the comment, or null
 const getComment = (id) => db.oneOrNone('SELECT * FROM comments WHERE comment_id=$1', id);
 
@@ -50,6 +60,7 @@ const updateComment = (comment, commentId) => {
 };
 
 module.exports = {
+  getCommentsForStudent,
   getCommentsPage,
   getAllComments,
   getComment,
