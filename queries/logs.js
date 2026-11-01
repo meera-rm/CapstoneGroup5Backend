@@ -23,6 +23,39 @@ const getAllLogs = (studentId) =>
 // Get one: the log, or null
 const getALog = (id) => db.oneOrNone('SELECT * FROM logs WHERE log_id=$1', id);
 
+
+// Logs for every student enrolled in a classroom this teacher teaches
+const getLogsForTeacher = (teacherId) =>
+  db.any(
+    `SELECT l.* FROM logs l
+     JOIN enrollments e ON e.student_id = l.students_id
+     JOIN classrooms c  ON c.classroom_id = e.classroom_id
+     WHERE c.teacher_id = $1
+     ORDER BY l.log_id`,
+    teacherId
+  );
+
+// One page of logs for a teacher's class, plus the total count
+const getLogsPageForTeacher = async (teacherId, limit, offset) => {
+  const logs = await db.any(
+    `SELECT l.* FROM logs l
+     JOIN enrollments e ON e.student_id = l.students_id
+     JOIN classrooms c  ON c.classroom_id = e.classroom_id
+     WHERE c.teacher_id = $1
+     ORDER BY l.log_id DESC
+     LIMIT $2 OFFSET $3`,
+    [teacherId, limit, offset]
+  );
+  const { total } = await db.one(
+    `SELECT COUNT(*)::int AS total FROM logs l
+     JOIN enrollments e ON e.student_id = l.students_id
+     JOIN classrooms c  ON c.classroom_id = e.classroom_id
+     WHERE c.teacher_id = $1`,
+    [teacherId]
+  );
+  return { logs, total };
+};
+
 // Create: always exactly one new row
 const createLog = (log) => {
   const {
@@ -67,4 +100,6 @@ module.exports = {
   createLog,
   deleteLog,
   updateLog,
+  getLogsForTeacher,
+  getLogsPageForTeacher,
 };

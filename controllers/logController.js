@@ -8,7 +8,11 @@ const commentController = require('./commentController');
 const { getPagination, buildMeta } = require('../utils/pagination');
 const { authenticate, authorize } = require('../middleware/auth');
 const { sendDbError } = require('../utils/dbErrors');
+const { canViewStudent } = require('../utils/access');
+const { getAStudent } = require('../queries/students');
+const { getTeacherByUserId } = require('../queries/teachers');
 
+  
 const {
   getAllLogs,
   getLogsPage,
@@ -16,6 +20,8 @@ const {
   createLog,
   updateLog,
   deleteLog,
+  getLogsForTeacher,
+  getLogsPageForTeacher
 } = require('../queries/logs');
 
 logs.use(authenticate);
@@ -26,13 +32,36 @@ logs.use('/:logId/comments', commentController);
 logs.get('/', async (req, res) => {
   const { studentId } = req.params;
   try {
-    if (!req.query.page) {
-      return res.status(200).json(await getAllLogs(studentId));
+    if (studentId) {
+      // One student: the student must be visible to this user
+      const student = await getAStudent(studentId);
+      if (!student) return res.status(404).json({ error: 'Student with given id not found' });
+      if (!(await canViewStudent(req.user, student))) {
+        return res.status(403).json({ error: 'You can only view logs for students you are allowed to see' });
+      }
+      if (!req.query.page) {
+        return res.status(200).json(await getAllLogs(studentId));
+      }
+      const { page, limit, offset } = getPagination(req.query, 6);
+      const { logs: pageLogs, total } = await getLogsPage(studentId, limit, offset);
+      return res.status(200).json({ success: true, payload: pageLogs, pagination: buildMeta(page, limit, total) });
     }
-    const { page, limit, offset } = getPagination(req.query, 6);
-    const { logs: pageLogs, total } = await getLogsPage(studentId, limit, offset);
-    res.status(200).json({ success: true, payload: pageLogs, pagination: buildMeta(page, limit, total) });
-  } catch (error) {
+
+    // No student given: the all-logs list
+    if (req.user.role === 'admin') {
+      return res.status(200).json(await getAllLogs());
+    }
+    if (req.user.role === 'teacher') {
+      const teacher = await getTeacherByUserId(req.user.id);
+      if (!teacher) return res.status(200).json([]);
+      if (!req.query.page) {
+        return res.status(200).json(await getLogsForTeacher(teacher.teacher_id));
+      }
+      const { page, limit, offset } = getPagination(req.query, 6);
+      const { logs: pageLogs, total } = await getLogsPageForTeacher(teacher.teacher_id, limit, offset);
+      return res.status(200).json({ success: true, payload: pageLogs, pagination: buildMeta(page, limit, total) }); 
+    }
+ } catch (error) {
     sendDbError(res, error, 'Could not load logs');
   }
 });
@@ -42,6 +71,10 @@ logs.get('/:logId', async (req, res) => {
   try {
     const log = await getALog(req.params.logId);
     if (!log) return res.status(404).json({ error: 'Log with given id not found' });
+    const student = await getAStudent(log.students_id);
+    if (!(await canViewStudent(req.user, student))) {
+      return res.status(403).json({ error: 'You can only view logs for students you are allowed to see' });
+    }
     res.json(log);
   } catch (error) {
     sendDbError(res, error, 'Could not load log');

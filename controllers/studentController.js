@@ -8,6 +8,10 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { sendDbError } = require('../utils/dbErrors');
 const { getPagination, buildMeta } = require('../utils/pagination');
 
+const { canViewStudent } = require('../utils/access');
+const { getTeacherByUserId } = require('../queries/teachers');
+
+const { getStudentsInTeacher }= require('../queries/students');
 students.use(authenticate); // every student route needs a token (before nested routes)
 
 const logController = require('./logController.js');
@@ -23,13 +27,24 @@ const {
   createStudent,
   updateStudent,
   deleteStudent,
-  getStudentByUserId
+  getStudentByUserId,
+  isStudentInTeacherClass,
+  getStudentsInTeacherClasses,
 } = require('../queries/students');
 
 // Parents only ever see their own children (students.parent_email = their login email).
 const isParent = (user) => user.role === 'parent';
 const isParentOf = (user, student) =>
   !!student.parent_email && student.parent_email.toLowerCase() === (user.email || '').toLowerCase();
+
+
+// Students see only their own record (students.user_id = their login id)
+const isStudent = (user) => user.role === 'student';
+const isOwnStudent = (user, student) =>
+  student.user_id !== null &&
+  student.user_id !== undefined &&
+  Number(student.user_id) === Number(user.id);
+
 
 // My children: GET /api/students/mine  (parent dashboard)
 // Must be above '/:studentId', or Express would treat "mine" as an id.
@@ -81,6 +96,22 @@ students.get('/', async (req, res) => {
     if (isParent(req.user)) {
       return res.json(await getStudentsByParentEmail(req.user.email));
     }
+    if (isStudent(req.user)) {
+      const me = await getStudentByUserId(req.user.id);
+      return res.json(me ? [me] : []); // a student only ever gets their own record
+    }
+
+        if (req.user.role === 'teacher') {
+      const teacher = await getTeacherByUserId(req.user.id);
+      if (!teacher) return res.json([]);
+      if (teacherId && Number(teacherId) !== Number(teacher.teacher_id)) {
+        return res.status(403).json({ error: 'You can only view your own class' });
+      }
+      return res.json(await getStudentsInTeacherClasses(teacher.teacher_id));
+    }
+
+    // admin: everyone, as before
+
     if (!req.query.page) {
       return res.json(await getAllStudents(teacherId));
     }
@@ -98,8 +129,16 @@ students.get('/:studentId', async (req, res) => {
   try {
     const student = await getAStudent(req.params.studentId);
     if (!student) return res.status(404).json({ error: 'Student with given id not found' });
+
+    if (!(await canViewStudent(req.user, student))) {
+      return res.status(403).json({ error: 'You can only view students you are allowed to see' });
+    }
+
     if (isParent(req.user) && !isParentOf(req.user, student)) {
       return res.status(403).json({ error: 'You can only view your own children' });
+    }
+    if (isStudent(req.user) && !isOwnStudent(req.user, student)) {
+      return res.status(403).json({ error: 'You can only view your own record' });
     }
     res.json(student);
   } catch (error) {

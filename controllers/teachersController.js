@@ -30,6 +30,13 @@ const serverError = (res, error, message) => {
   res.status(500).json({ success: false, message });
 };
 
+const teacherStaffOnly = (req, res, next) =>
+  ['teacher', 'admin'].includes(req.user.role)
+    ? next()
+    : res.status(403).json({ success: false, message: 'You do not have permission to do this' });
+
+teachers.get('/', teacherStaffOnly, async (req, res) => { /* existing body */ });
+teachers.get('/:id', teacherStaffOnly, async (req, res) => { /* existing body */ });
 
 
 // get all teachers

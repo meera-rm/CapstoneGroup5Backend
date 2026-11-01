@@ -4,12 +4,16 @@ const { users, authHeader, expiredAuthHeader } = require('./helpers');
 
 jest.mock('../db/dbConfig', () => ({}));  // never open a real database connection
 jest.mock('../queries/users');      // every query function becomes a jest.fn()
-jest.mock('google-auth-library');   // no calls to Google
+jest.mock('google-auth-library');
+jest.mock('../queries/teachers');
+jest.mock('../queries/students');   // no calls to Google
 
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const queries = require('../queries/users');
+const teacherQ = require('../queries/teachers');
+const studentQ = require('../queries/students');
 const app = require('../app');
 
 // Make the fake Google client return whatever payload a test sets
@@ -60,6 +64,57 @@ describe('POST /api/auth/register', () => {
     expect(saved.user_role).toBe('student');
     expect(saved.user_password).not.toBe('password123');                    // not plain text
     expect(await bcrypt.compare('password123', saved.user_password)).toBe(true); // but a real hash
+  });
+
+  test.each(['teacher', 'parent'])('201: accepts an allowed self-signup role "%s"', async (role) => {
+    queries.emailExists.mockResolvedValue(false);
+    queries.createUser.mockResolvedValue({ ...users.student, user_role: role });
+
+    const res = await request(app).post('/api/auth/register').send({ ...body, user_role: role });
+
+    expect(res.status).toBe(201);
+    expect(queries.createUser.mock.calls[0][0].user_role).toBe(role);
+  });
+
+  test('201: unknown or missing role falls back to "student"', async () => {
+    queries.emailExists.mockResolvedValue(false);
+    queries.createUser.mockResolvedValue(users.student);
+
+    const res = await request(app).post('/api/auth/register').send({ ...body, user_role: 'superuser' });
+
+    expect(res.status).toBe(201);
+    expect(queries.createUser.mock.calls[0][0].user_role).toBe('student');
+  });
+
+  test('teacher signup with a matching teacher_email links that row instead of creating one', async () => {
+    queries.emailExists.mockResolvedValue(false);
+    queries.createUser.mockResolvedValue({ ...users.student, user_id: 9, user_role: 'teacher' });
+    teacherQ.linkUnlinkedTeacherByEmail.mockResolvedValue({ teacher_id: 1 });
+
+    const res = await request(app).post('/api/auth/register').send({ ...body, user_role: 'teacher' });
+
+    expect(res.status).toBe(201);
+    expect(teacherQ.linkUnlinkedTeacherByEmail).toHaveBeenCalledWith('sam@test.com', 9);
+    expect(teacherQ.createTeacherForUser).not.toHaveBeenCalled();
+  });
+
+  test('teacher signup with no matching row creates a teachers row with the school', async () => {
+    queries.emailExists.mockResolvedValue(false);
+    queries.createUser.mockResolvedValue({ ...users.student, user_id: 9, user_role: 'teacher' });
+    teacherQ.linkUnlinkedTeacherByEmail.mockResolvedValue(null);
+
+    await request(app).post('/api/auth/register').send({ ...body, user_role: 'teacher', school_name: ' Lincoln ' });
+
+    expect(teacherQ.createTeacherForUser).toHaveBeenCalledWith(9, 'Sam Student', 'Lincoln');
+  });
+
+  test('student signup claims a matching student_email row', async () => {
+    queries.emailExists.mockResolvedValue(false);
+    queries.createUser.mockResolvedValue({ ...users.student, user_id: 9 });
+
+    await request(app).post('/api/auth/register').send(body);
+
+    expect(studentQ.linkUnlinkedStudentByEmail).toHaveBeenCalledWith('sam@test.com', 9);
   });
 
   test('500 when the database fails', async () => {

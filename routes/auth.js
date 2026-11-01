@@ -23,6 +23,10 @@ const {
 
 
 const { jwtTokens, verifyRefreshToken } = require('../utils/jwt-helpers');
+const { SELF_SIGNUP_ROLES } = require('../utils/roles');
+const { linkUnlinkedTeacherByEmail, createTeacherForUser } = require('../queries/teachers');
+const { linkUnlinkedStudentByEmail } = require('../queries/students');
+const { deleteUser } = require('../queries/users');
 const { authenticate } = require('../middleware/auth');
  
 const router = express.Router();
@@ -63,15 +67,32 @@ router.post('/register',  authLimiter, async (req, res) => {
  
     const hash = await bcrypt.hash(user_password, SALT_ROUNDS);
  
-    // Role is NOT taken from req.body — otherwise anyone could sign up as admin.
+    // Role comes from req.body but only if it is on the self-signup allowlist
+    // (student/teacher/parent). Anything else, including admin, falls back to student.
     const user = await createUser({
       user_name: user_name.trim(),
       user_email: email,
       user_password: hash,
-      user_role: 'student',
+      user_role: SELF_SIGNUP_ROLES.includes(req.body.user_role) ? req.body.user_role : 'student',
       user_avatar: req.body.user_avatar || '',
     });
  
+    // Attach the new login to a record: teachers and students are matched by email first,
+    // and a teacher with no match gets a new teachers row. If that fails, remove the login.
+    try {
+      if (user.user_role === 'teacher') {
+        const claimed = await linkUnlinkedTeacherByEmail(email, user.user_id);
+        if (!claimed) {
+          await createTeacherForUser(user.user_id, user.user_name, (req.body.school_name || '').trim());
+        }
+      } else if (user.user_role === 'student') {
+        await linkUnlinkedStudentByEmail(email, user.user_id);
+      }
+    } catch (linkErr) {
+      await deleteUser(user.user_id);
+      throw linkErr;
+    }
+
     return sendAuth(res, user, 201);
   } catch (err) {
     console.error('register error:', err);

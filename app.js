@@ -71,6 +71,7 @@ app.use('/api/comments', commentController);
 app.use('/api/subscriptions', subscriptionController);
 app.use('/api/dictionary', dictionaryController);
 app.use('/api/notes', noteController);
+app.use('/api/admin', require('./controllers/adminController'));
 
 // Swagger docs at /api-docs
 const openapiSpec = YAML.parse(

@@ -3,6 +3,8 @@ const { users, authHeader } = require('./helpers');
 
 jest.mock('../db/dbConfig', () => ({}));
 jest.mock('../queries/students');
+jest.mock('../queries/teachers');
+const teachersQ = require('../queries/teachers');
 
 const request = require('supertest');
 const queries = require('../queries/students');
@@ -59,11 +61,36 @@ describe('GET /api/students as a parent', () => {
   });
 });
 
-describe('teachers are unchanged', () => {
-  test('a teacher still gets all students', async () => {
-    queries.getAllStudents.mockResolvedValue([myKid, otherKid]);
+describe('teachers see only their own class students', () => {
+  test('a teacher gets the students in their classes, not all students', async () => {
+    teachersQ.getTeacherByUserId.mockResolvedValue({ teacher_id: 1, user_id: 4 });
+    queries.getStudentsInTeacherClasses.mockResolvedValue([myKid]);
     const res = await request(app).get('/api/students').set(asTeacher);
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(2);
+    expect(res.body).toHaveLength(1);
+    expect(queries.getAllStudents).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('students as a student', () => {
+  test('the list contains only their own record', async () => {
+    queries.getStudentByUserId.mockResolvedValue({ student_id: 1, user_id: 1, student_name: 'Kim' });
+    const res = await request(app).get('/api/students').set(asStudent);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(queries.getAllStudents).not.toHaveBeenCalled();
+  });
+
+  test('can open their own record', async () => {
+    queries.getAStudent.mockResolvedValue({ student_id: 1, user_id: 1, student_name: 'Kim' });
+    expect((await request(app).get('/api/students/1').set(asStudent)).status).toBe(200);
+  });
+
+  test("403 opening someone else's record", async () => {
+    queries.getAStudent.mockResolvedValue({ student_id: 2, user_id: 2, student_name: 'Lee' });
+    const res = await request(app).get('/api/students/2').set(asStudent);
+    expect(res.status).toBe(403);
+    expect(res.body.student_name).toBeUndefined();
   });
 });

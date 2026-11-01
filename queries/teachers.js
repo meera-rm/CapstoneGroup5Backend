@@ -53,10 +53,11 @@ const createTeacher = (teacher) => {
     class_subject,
     teaching_grade,
     teacher_avatar,
+    teacher_email,
   } = teacher;
 
   return db.one(
-    'INSERT INTO teachers(teacher_name, school_name, school_district, school_address, zipcode, state_name, class_subject, teaching_grade, teacher_avatar) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+    'INSERT INTO teachers(teacher_name, school_name, school_district, school_address, zipcode, state_name, class_subject, teaching_grade, teacher_avatar, teacher_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
     [
       teacher_name,
       school_name,
@@ -67,6 +68,7 @@ const createTeacher = (teacher) => {
       class_subject,
       teaching_grade,
       teacher_avatar,
+      teacher_email,
     ]
   );
 };
@@ -82,10 +84,11 @@ const updateTeacher = (teacher, teacherId) => {
     class_subject,
     teaching_grade,
     teacher_avatar,
+    teacher_email,
   } = teacher;
 
   return db.oneOrNone(
-    'UPDATE teachers SET teacher_name=$1, school_name=$2, school_district=$3, school_address=$4, zipcode=$5, state_name=$6, class_subject=$7, teaching_grade=$8, teacher_avatar=COALESCE($9, teacher_avatar) WHERE teacher_id=$10 RETURNING *',
+    'UPDATE teachers SET teacher_name=$1, school_name=$2, school_district=$3, school_address=$4, zipcode=$5, state_name=$6, class_subject=$7, teaching_grade=$8, teacher_avatar=COALESCE($9, teacher_avatar), teacher_email=$11 WHERE teacher_id=$10 RETURNING *',
     [
       teacher_name,
       school_name,
@@ -97,11 +100,31 @@ const updateTeacher = (teacher, teacherId) => {
       teaching_grade,
       teacher_avatar,
       teacherId,
+      teacher_email,
     ]
   );
 };
 
+// Signup helpers: link an unclaimed teacher row whose teacher_email matches, else create one
+const linkUnlinkedTeacherByEmail = (email, userId) =>
+  db.oneOrNone(
+    `UPDATE teachers SET user_id = $2
+     WHERE teacher_id = (SELECT teacher_id FROM teachers
+                         WHERE LOWER(teacher_email) = LOWER($1) AND user_id IS NULL
+                         ORDER BY teacher_id LIMIT 1)
+     RETURNING *`,
+    [email, userId]
+  );
+
+const createTeacherForUser = (userId, name, school) =>
+  db.one(
+    'INSERT INTO teachers(teacher_name, school_name, user_id) VALUES ($1, $2, $3) RETURNING *',
+    [name, school, userId]
+  );
+
 module.exports = {
+  linkUnlinkedTeacherByEmail,
+  createTeacherForUser,
   getTeachersPage,
   getAllTeachers,
   oneTeacher,

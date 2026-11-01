@@ -32,6 +32,28 @@ const getAStudent = (id) => db.oneOrNone('SELECT * FROM students WHERE student_i
 const getStudentByUserId = (userId) =>
   db.oneOrNone('SELECT * FROM students WHERE user_id = $1', userId);
 
+// Students enrolled in any classroom this teacher teaches
+const getStudentsInTeacherClasses = (teacherId) =>
+  db.any(
+    `SELECT DISTINCT s.* FROM students s
+     JOIN enrollments e ON e.student_id = s.student_id
+     JOIN classrooms c  ON c.classroom_id = e.classroom_id
+     WHERE c.teacher_id = $1
+     ORDER BY s.student_id`,
+    teacherId
+  );
+
+// Is this student enrolled in a classroom this teacher teaches?
+const isStudentInTeacherClass = (studentId, teacherId) =>
+  db.oneOrNone(
+    `SELECT 1 FROM enrollments e
+     JOIN classrooms c ON c.classroom_id = e.classroom_id
+     WHERE e.student_id = $1 AND c.teacher_id = $2
+     LIMIT 1`,
+    [studentId, teacherId]
+  );
+
+
 
 // Create: always exactly one new row
 const createStudent = (student) => {
@@ -75,7 +97,19 @@ const updateStudent = (student, studentId) => {
   );
 };
 
+// Signup helper: claim an unlinked student row whose student_email matches the new login
+const linkUnlinkedStudentByEmail = (email, userId) =>
+  db.oneOrNone(
+    `UPDATE students SET user_id = $2
+     WHERE student_id = (SELECT student_id FROM students
+                         WHERE LOWER(student_email) = LOWER($1) AND user_id IS NULL
+                         ORDER BY student_id LIMIT 1)
+     RETURNING *`,
+    [email, userId]
+  );
+
 module.exports = {
+  linkUnlinkedStudentByEmail,
   getStudentsByParentEmail,
   getStudentsPage,
   getAStudent,
@@ -83,5 +117,7 @@ module.exports = {
   deleteStudent,
   updateStudent,
   getAllStudents,
-  getStudentByUserId
+  getStudentByUserId,
+  isStudentInTeacherClass,
+  getStudentsInTeacherClasses,
 };
